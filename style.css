@@ -304,6 +304,14 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
 }
 .btn-small { padding: 9px 16px; font-size: 0.8rem; border-radius: 8px; }
 
+.backup-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: -6px;
+}
+.backup-row .btn-text { border-bottom: none; padding: 6px; font-size: 0.76rem; }
+
 .mode-choice { display: flex; flex-direction: column; gap: 12px; width: 100%; }
 
 .section-title {
@@ -473,6 +481,9 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   cursor: pointer;
 }
 .flash-card.flipped { transform: rotateY(180deg); }
+.flash-card.fly-right, .flash-card.fly-left {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
 .flash-card.fly-right { transform: translateX(140%) rotate(10deg) !important; opacity: 0; }
 .flash-card.fly-left { transform: translateX(-140%) rotate(-10deg) !important; opacity: 0; }
 

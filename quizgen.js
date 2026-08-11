@@ -238,12 +238,9 @@
         ? defTerms.concat(keywordPool)
         : keywordPool;
       const distractors = buildDistractors(q.answerShort, pool, 3);
-      // Pad with generic filler if the notes were too short for 3 distractors.
-      while (distractors.length < 3) {
-        distractors.push("None of the above" + (distractors.length ? " (" + (distractors.length + 1) + ")" : ""));
-      }
-      const choices = shuffle([q.answerShort, ...distractors.slice(0, 3)]);
-      q.choices = choices;
+      // Short/narrow notes may not yield 3 real distractors — ship fewer
+      // options rather than padding with meaningless filler answers.
+      q.choices = shuffle([q.answerShort, ...distractors]);
     }
 
     shuffle(questions);

@@ -59,10 +59,30 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), 2400);
   }
 
+  // Safety net for the hardware/gesture back button on mobile: without
+  // this, pressing back while mid-quiz exits the installed app instead of
+  // stepping back in it. We push a single history entry the first time the
+  // user leaves the home screen; consuming it (via back) always returns to
+  // home rather than trying to model every screen's exact "back" target.
+  let navGuardActive = false;
   function showScreen(id) {
     $all(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
     window.scrollTo(0, 0);
+    if (id === "screen-home") {
+      navGuardActive = false;
+    } else if (!navGuardActive) {
+      navGuardActive = true;
+      try { history.pushState({ doxaGuard: true }, ""); } catch (e) {}
+    }
   }
+  window.addEventListener("popstate", () => {
+    navGuardActive = false;
+    const active = $(".screen.active");
+    if (active && active.id !== "screen-home") {
+      renderHome();
+      showScreen("screen-home");
+    }
+  });
 
   function shuffleArr(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -86,7 +106,10 @@
     p.flags = p.flags || {};
     return p;
   }
-  function saveProfile(p) { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); }
+  function saveProfile(p) {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); }
+    catch (e) { toast("Couldn't save — your browser's storage may be full or private."); }
+  }
   let profile = loadProfile();
 
   function levelInfo(xp) {
@@ -205,7 +228,10 @@
     decks.forEach(migrateDeckMastery);
     return decks;
   }
-  function saveDecks(decks) { localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
+  function saveDecks(decks) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
+    catch (e) { toast("Couldn't save — your browser's storage may be full or private."); }
+  }
   function upsertDeck(deck) {
     const decks = loadDecks();
     const idx = decks.findIndex((d) => d.id === deck.id);
@@ -298,6 +324,65 @@
       list.appendChild(card);
     }
   }
+
+  // ---------------------------------------------------------------
+  // Backup: export/import decks as JSON (the only copy of this data
+  // lives in this browser's localStorage, so this is the safety net).
+  // ---------------------------------------------------------------
+  $("#export-btn").addEventListener("click", () => {
+    const decks = loadDecks();
+    if (decks.length === 0) {
+      toast("No decks to export yet.");
+      return;
+    }
+    const payload = { app: "doxa", version: 1, exportedAt: new Date().toISOString(), decks };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `doxa-backup-${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${decks.length} deck${decks.length === 1 ? "" : "s"}.`);
+  });
+
+  $("#import-btn").addEventListener("click", () => $("#import-file").click());
+
+  $("#import-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(reader.result); } catch (err) {
+        toast("That file isn't valid — couldn't read it as a Doxa backup.");
+        return;
+      }
+      if (!data || !Array.isArray(data.decks) || data.decks.length === 0) {
+        toast("That file doesn't contain any decks to import.");
+        return;
+      }
+      let imported = 0;
+      for (const deck of data.decks) {
+        if (!deck || !deck.id || !Array.isArray(deck.questions)) continue;
+        migrateDeckMastery(deck);
+        upsertDeck(deck);
+        imported++;
+      }
+      if (imported === 0) {
+        toast("That file doesn't contain any decks to import.");
+        return;
+      }
+      checkBadges();
+      renderHome();
+      toast(`Imported ${imported} deck${imported === 1 ? "" : "s"}.`);
+    };
+    reader.onerror = () => toast("Couldn't read that file.");
+    reader.readAsText(file);
+  });
 
   function openDeckSummary(deck) {
     currentDeck = deck;
@@ -405,8 +490,8 @@
   });
 
   $("#flash-shuffle").addEventListener("click", () => {
-    shuffleArr(flash.order);
-    flash.index = 0;
+    const remaining = shuffleArr(flash.order.slice(flash.index));
+    flash.order = flash.order.slice(0, flash.index).concat(remaining);
     renderFlashCard();
     vibrate(10);
   });
