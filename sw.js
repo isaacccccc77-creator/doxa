@@ -1,4 +1,4 @@
-const CACHE = "doxa-v1";
+const CACHE = "doxa-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,9 @@ const SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
+  "./fonts/fraunces-normal.woff2",
+  "./fonts/fraunces-italic.woff2",
+  "./fonts/inter.woff2",
 ];
 
 self.addEventListener("install", (event) => {

@@ -14,11 +14,11 @@
   const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 
   const BADGES = [
-    { id: "first_deck", icon: "📚", label: "First Deck", check: (p, decks) => decks.length >= 1 },
-    { id: "streak_3", icon: "🔥", label: "3-Day Streak", check: (p) => (p.streak.best || 0) >= 3 },
-    { id: "streak_7", icon: "⚡", label: "7-Day Streak", check: (p) => (p.streak.best || 0) >= 7 },
-    { id: "cards_50", icon: "🎯", label: "50 Mastered", check: (p, decks) => totalKnownAcrossDecks(decks) >= 50 },
-    { id: "quiz_ace", icon: "🏆", label: "Perfect Quiz", check: (p) => !!(p.flags && p.flags.perfectQuiz) },
+    { id: "first_deck", icon: "1", label: "First Deck", check: (p, decks) => decks.length >= 1 },
+    { id: "streak_3", icon: "3", label: "3-Day Streak", check: (p) => (p.streak.best || 0) >= 3 },
+    { id: "streak_7", icon: "7", label: "7-Day Streak", check: (p) => (p.streak.best || 0) >= 7 },
+    { id: "cards_50", icon: "50", label: "50 Mastered", check: (p, decks) => totalKnownAcrossDecks(decks) >= 50 },
+    { id: "quiz_ace", icon: "A", label: "Perfect Quiz", check: (p) => !!(p.flags && p.flags.perfectQuiz) },
   ];
 
   // ---------------------------------------------------------------
@@ -110,11 +110,10 @@
 
   function renderHeaderChips() {
     $("#streak-count").textContent = profile.streak.count || 0;
-    $("#streak-chip").classList.toggle("lit", (profile.streak.count || 0) > 0);
     const li = levelInfo(profile.xp);
     $("#level-num").textContent = li.level;
     $("#xp-fill").style.width = Math.round((li.into / li.needed) * 100) + "%";
-    $("#xp-label").innerHTML = `${li.into} / ${li.needed} to next level`;
+    $("#xp-label").innerHTML = `${li.into}<small>/ ${li.needed}</small>`;
   }
 
   function touchStreak() {
@@ -133,7 +132,7 @@
     renderHeaderChips();
     addXp(XP_STREAK_BONUS);
     if (newCount > 1) {
-      toast(`🔥 ${newCount}-day streak!`);
+      toast(`${newCount}-day streak`);
       if (STREAK_MILESTONES.includes(newCount)) {
         burstConfetti();
         vibrate([15, 40, 15, 40, 15]);
@@ -180,7 +179,7 @@
       const el = document.createElement("div");
       el.className = "badge" + (earned ? " earned" : "");
       el.title = earned ? `${b.label} — earned ${new Date(profile.badges[b.id]).toLocaleDateString()}` : `${b.label} — locked`;
-      el.innerHTML = `<div class="badge-icon">${b.icon}</div><div class="badge-label">${b.label}</div>`;
+      el.innerHTML = `<div class="badge-ring">${b.icon}</div><div class="badge-label">${b.label}</div>`;
       row.appendChild(el);
     }
   }
@@ -281,12 +280,12 @@
         <div class="deck-card-main">
           <div class="deck-card-title-row">
             <div class="deck-card-title">${escapeHtml(deck.title)}</div>
-            ${due > 0 ? `<span class="due-pill">${due} due</span>` : ""}
+            ${due > 0 ? `<span class="due-tag">${due} due</span>` : ""}
           </div>
           <div class="deck-card-meta">${deck.questions.length} questions · ${timeAgo(deck.createdAt)}</div>
           <div class="deck-mastery-track"><div class="deck-mastery-fill" style="width:${masteryPct}%;"></div></div>
         </div>
-        <button class="icon-btn deck-delete" aria-label="Delete deck">🗑</button>
+        <button class="icon-btn deck-delete" aria-label="Delete deck">✕</button>
       `;
       card.querySelector(".deck-card-main").addEventListener("click", () => openDeckSummary(deck));
       card.querySelector(".deck-delete").addEventListener("click", (e) => {
@@ -309,11 +308,11 @@
     if (due > 0) {
       callout.textContent = `${due} card${due === 1 ? "" : "s"} due for review`;
       callout.className = "due-callout has-due";
-      $("#start-smart-review").textContent = `🔥 Smart Review (${due})`;
+      $("#start-smart-review").textContent = `Smart Review (${due})`;
     } else {
-      callout.textContent = "All caught up ✅";
+      callout.textContent = "All caught up";
       callout.className = "due-callout all-caught";
-      $("#start-smart-review").textContent = "🔥 Review all";
+      $("#start-smart-review").textContent = "Review all";
     }
     showScreen("screen-summary");
   }
@@ -501,8 +500,8 @@
 
   function buildExtrasHtml(sessionXp, leveledUp, newLevel, newlyBadges) {
     const lines = [`<div class="result-line xp">+${sessionXp} XP earned</div>`];
-    if (leveledUp) lines.push(`<div class="result-line levelup">🎉 Level up! Now level ${newLevel}</div>`);
-    newlyBadges.forEach((b) => lines.push(`<div class="result-line badge">🏅 Badge unlocked: ${b.label}</div>`));
+    if (leveledUp) lines.push(`<div class="result-line levelup">Level up — now level ${newLevel}</div>`);
+    newlyBadges.forEach((b) => lines.push(`<div class="result-line badge">Badge earned — ${b.label}</div>`));
     return lines.join("");
   }
 
@@ -513,7 +512,6 @@
     if (bonus.leveledUp) { flash.leveledUp = true; flash.newLevel = bonus.newLevel; }
     const newlyBadges = checkBadges();
 
-    $("#results-emoji").textContent = flash.known / Math.max(1, total) >= 0.7 ? "🎉" : "💪";
     $("#results-score").textContent = `${flash.known}/${total}`;
     $("#results-sub").textContent = `Marked known: ${flash.known} · still learning: ${flash.learning}`;
     $("#results-extras").innerHTML = buildExtrasHtml(flash.sessionXp, flash.leveledUp, flash.newLevel, newlyBadges);
@@ -626,7 +624,6 @@
     }
     const newlyBadges = checkBadges();
 
-    $("#results-emoji").textContent = pct >= 0.8 ? "🎉" : pct >= 0.5 ? "👍" : "💪";
     $("#results-score").textContent = `${mcq.score}/${total}`;
     $("#results-sub").textContent = pct >= 0.8 ? "Excellent work!" : pct >= 0.5 ? "Good progress — keep going." : "Review and try again.";
     $("#results-extras").innerHTML = buildExtrasHtml(mcq.sessionXp, mcq.leveledUp, mcq.newLevel, newlyBadges);
@@ -674,23 +671,23 @@
     const canvas = $("#confetti-canvas");
     if (!canvas.width) resizeConfettiCanvas();
     const dpr = window.devicePixelRatio || 1;
-    const colors = ["#ff7a45", "#ffb648", "#3fe0b0", "#ff5c72", "#ffd97a"];
+    const colors = ["#c9a961", "#dcc287", "#f2ecdf", "#8fa98f"];
     const cx = canvas.width / 2;
-    const n = count || 48;
+    const n = count || 24;
     for (let i = 0; i < n; i++) {
       const angle = Math.random() * Math.PI + Math.PI;
-      const speed = (2 + Math.random() * 4) * dpr;
+      const speed = (1.4 + Math.random() * 2.6) * dpr;
       confettiParticles.push({
         x: cx + (Math.random() - 0.5) * 100 * dpr,
         y: canvas.height * 0.35,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 4 * dpr,
-        size: (4 + Math.random() * 4) * dpr,
+        vy: Math.sin(angle) * speed - 2.6 * dpr,
+        size: (2.5 + Math.random() * 2.5) * dpr,
         color: colors[Math.floor(Math.random() * colors.length)],
         rot: Math.random() * Math.PI * 2,
-        vrot: (Math.random() - 0.5) * 0.3,
+        vrot: (Math.random() - 0.5) * 0.2,
         life: 0,
-        maxLife: 70 + Math.random() * 30,
+        maxLife: 80 + Math.random() * 30,
       });
     }
     if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(stepConfetti); }
@@ -700,7 +697,7 @@
     const canvas = $("#confetti-canvas");
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const gravity = 0.18 * (window.devicePixelRatio || 1);
+    const gravity = 0.13 * (window.devicePixelRatio || 1);
     confettiParticles = confettiParticles.filter((p) => p.life < p.maxLife);
     for (const p of confettiParticles) {
       p.vy += gravity;
@@ -770,7 +767,7 @@
     if (profile.reminder.lastNotifiedDate === today) return;
     if (new Date().getHours() < 12) return;
     try {
-      new Notification("Keep your streak alive 🔥", {
+      new Notification("Keep your streak alive", {
         body: profile.streak.count > 0
           ? `You're on a ${profile.streak.count}-day streak — study a few cards before it resets.`
           : "You haven't studied today yet — a quick review only takes a minute.",
