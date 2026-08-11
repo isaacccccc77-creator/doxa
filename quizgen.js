@@ -249,5 +249,19 @@
     return { questions, keywordPool };
   }
 
-  global.QuizGen = { generateQuiz, splitSentences };
+  // Assign fresh MCQ choices to every question in the list, pulling
+  // distractors from the other questions' own answers. Used for
+  // manually-authored cards (which have no notes/keywordPool to draw
+  // from) and re-run whenever a deck's card set changes, so newly added
+  // or edited cards are immediately available as distractor material.
+  function rebuildChoices(questions) {
+    const pool = questions.map((q) => q.answerShort);
+    for (const q of questions) {
+      const others = pool.filter((a) => a.toLowerCase() !== q.answerShort.toLowerCase());
+      const distractors = buildDistractors(q.answerShort, others, 3);
+      q.choices = shuffle([q.answerShort, ...distractors]);
+    }
+  }
+
+  global.QuizGen = { generateQuiz, splitSentences, rebuildChoices };
 })(window);

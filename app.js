@@ -388,16 +388,29 @@
     currentDeck = deck;
     $("#summary-title").textContent = deck.title;
     $("#summary-count").textContent = deck.questions.length;
-    const due = dueCount(deck);
-    const callout = $("#due-callout");
-    if (due > 0) {
-      callout.textContent = `${due} card${due === 1 ? "" : "s"} due for review`;
-      callout.className = "due-callout has-due";
-      $("#start-smart-review").textContent = `Smart Review (${due})`;
+
+    const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-mcq")];
+    if (deck.questions.length === 0) {
+      $("#summary-sub").textContent = "This deck is empty";
+      $("#due-callout").classList.add("hidden");
+      studyButtons.forEach((b) => b.classList.add("hidden"));
+      $("#manage-cards-btn").textContent = "Add your first card";
     } else {
-      callout.textContent = "All caught up";
-      callout.className = "due-callout all-caught";
-      $("#start-smart-review").textContent = "Review all";
+      $("#summary-sub").textContent = "questions in this deck";
+      $("#due-callout").classList.remove("hidden");
+      studyButtons.forEach((b) => b.classList.remove("hidden"));
+      $("#manage-cards-btn").textContent = "Manage cards";
+      const due = dueCount(deck);
+      const callout = $("#due-callout");
+      if (due > 0) {
+        callout.textContent = `${due} card${due === 1 ? "" : "s"} due for review`;
+        callout.className = "due-callout has-due";
+        $("#start-smart-review").textContent = `Smart Review (${due})`;
+      } else {
+        callout.textContent = "All caught up";
+        callout.className = "due-callout all-caught";
+        $("#start-smart-review").textContent = "Review all";
+      }
     }
     showScreen("screen-summary");
   }
@@ -439,10 +452,34 @@
     return words.length < notes.length ? words + "…" : words;
   }
 
+  $("#create-empty-btn").addEventListener("click", () => {
+    const titleInput = $("#deck-title").value.trim();
+    const deck = {
+      id: "d" + Date.now() + Math.random().toString(36).slice(2, 7),
+      title: titleInput || "New deck",
+      notes: "",
+      createdAt: Date.now(),
+      questions: [],
+      mastery: {},
+    };
+    upsertDeck(deck);
+    checkBadges();
+    $("#notes-input").value = "";
+    $("#deck-title").value = "";
+    openDeckSummary(deck);
+  });
+
   $all(".back-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      showScreen(btn.dataset.target);
-      if (btn.dataset.target === "screen-home") renderHome();
+      const target = btn.dataset.target;
+      if (target === "screen-home") {
+        renderHome();
+        showScreen("screen-home");
+      } else if (target === "screen-summary" && currentDeck) {
+        openDeckSummary(currentDeck);
+      } else {
+        showScreen(target);
+      }
     });
   });
 
@@ -454,6 +491,105 @@
       renderHome();
       showScreen("screen-home");
     }
+  });
+
+  // ---------------------------------------------------------------
+  // MANAGE CARDS: add/edit/delete individual X → Y flashcards by hand
+  // ---------------------------------------------------------------
+  let editingCardId = null;
+
+  function openManageCards(deck) {
+    currentDeck = deck;
+    cancelEditCard();
+    $("#manage-title").textContent = deck.title;
+    renderManageList();
+    showScreen("screen-manage");
+  }
+
+  function renderManageList() {
+    const list = $("#manage-card-list");
+    list.innerHTML = "";
+    const count = currentDeck.questions.length;
+    $("#manage-count-label").textContent = `${count} card${count === 1 ? "" : "s"}`;
+    for (const q of currentDeck.questions) {
+      const front = q.prompt.length > 70 ? q.prompt.slice(0, 70) + "…" : q.prompt;
+      const back = q.answer.length > 70 ? q.answer.slice(0, 70) + "…" : q.answer;
+      const el = document.createElement("div");
+      el.className = "deck-card";
+      el.innerHTML = `
+        <div class="deck-card-main">
+          <div class="deck-card-title">${escapeHtml(front)}</div>
+          <div class="deck-card-meta">${escapeHtml(back)}</div>
+        </div>
+        <button class="icon-btn card-delete" aria-label="Delete card">✕</button>
+      `;
+      el.querySelector(".deck-card-main").addEventListener("click", () => startEditCard(q));
+      el.querySelector(".card-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm("Delete this card?")) deleteCard(q.id);
+      });
+      list.appendChild(el);
+    }
+  }
+
+  function startEditCard(q) {
+    editingCardId = q.id;
+    $("#card-front").value = q.prompt;
+    $("#card-back").value = q.answer;
+    $("#card-save-btn").textContent = "Save changes";
+    $("#card-cancel-btn").classList.remove("hidden");
+    $("#card-front").focus();
+  }
+
+  function cancelEditCard() {
+    editingCardId = null;
+    $("#card-front").value = "";
+    $("#card-back").value = "";
+    $("#card-save-btn").textContent = "Add card";
+    $("#card-cancel-btn").classList.add("hidden");
+  }
+
+  function deleteCard(id) {
+    currentDeck.questions = currentDeck.questions.filter((q) => q.id !== id);
+    delete currentDeck.mastery[id];
+    upsertDeck(currentDeck);
+    if (editingCardId === id) cancelEditCard();
+    renderManageList();
+  }
+
+  $("#manage-cards-btn").addEventListener("click", () => {
+    if (!currentDeck) return;
+    openManageCards(currentDeck);
+  });
+
+  $("#card-cancel-btn").addEventListener("click", cancelEditCard);
+
+  $("#card-save-btn").addEventListener("click", () => {
+    if (!currentDeck) return;
+    const front = $("#card-front").value.trim();
+    const back = $("#card-back").value.trim();
+    if (!front || !back) {
+      toast("Add both a front and a back before saving.");
+      return;
+    }
+    if (editingCardId) {
+      const q = currentDeck.questions.find((qq) => qq.id === editingCardId);
+      if (q) { q.prompt = front; q.answer = back; q.answerShort = back; }
+    } else {
+      currentDeck.questions.push({
+        id: "m" + Date.now() + Math.random().toString(36).slice(2, 7),
+        type: "manual",
+        prompt: front,
+        answer: back,
+        answerShort: back,
+        sourceSentence: "",
+        choices: [],
+      });
+    }
+    upsertDeck(currentDeck);
+    checkBadges();
+    cancelEditCard();
+    renderManageList();
   });
 
   // ---------------------------------------------------------------
@@ -510,10 +646,10 @@
     const card = $("#flash-card");
     card.classList.remove("flipped", "fly-left", "fly-right");
     flash.flipped = false;
-    $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : "CLOZE";
+    $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : q.type === "manual" ? "CARD" : "CLOZE";
     $("#flash-front-text").textContent = q.prompt;
     $("#flash-answer-text").textContent = q.answer;
-    $("#flash-context-text").textContent = q.type === "define" ? q.sourceSentence : `"${q.sourceSentence}"`;
+    $("#flash-context-text").textContent = !q.sourceSentence ? "" : q.type === "define" ? q.sourceSentence : `"${q.sourceSentence}"`;
     $("#flash-known-count").textContent = flash.known;
     $("#flash-learning-count").textContent = flash.learning;
     $("#flash-progress").style.width = Math.round((flash.index / flash.order.length) * 100) + "%";
@@ -619,6 +755,7 @@
   };
 
   function startMcq(questions) {
+    if (currentDeck) QuizGen.rebuildChoices(currentDeck.questions);
     mcq.order = questions.slice();
     shuffleArr(mcq.order);
     mcq.index = 0;
@@ -645,7 +782,7 @@
     }
     mcq.answered = false;
     const q = mcq.order[mcq.index];
-    $("#mcq-question").textContent = q.type === "define" ? q.prompt : `Fill in the blank:\n${q.prompt}`;
+    $("#mcq-question").textContent = q.type === "cloze" ? `Fill in the blank:\n${q.prompt}` : q.prompt;
     $("#mcq-score").textContent = mcq.score;
     $("#mcq-progress").style.width = Math.round((mcq.index / mcq.order.length) * 100) + "%";
     $("#mcq-next").classList.add("hidden");

@@ -269,6 +269,7 @@ input[type="text"], textarea {
 }
 input[type="text"]:focus, textarea:focus { border-color: var(--gold-dim); }
 textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
+textarea.textarea-small { min-height: 70px; }
 .hint { font-size: 0.78rem; color: var(--taupe); margin: 10px 2px 16px; line-height: 1.5; }
 
 .btn {

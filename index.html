@@ -69,6 +69,7 @@
       <div class="hint" id="notes-hint">Tip: full sentences work best — definitions like &ldquo;X is Y&rdquo; make great questions.</div>
 
       <button id="generate-btn" class="btn btn-primary btn-full">Generate quiz</button>
+      <button id="create-empty-btn" class="btn-text">Or create an empty deck to build by hand</button>
     </div>
 
     <div id="saved-decks-wrap" class="hidden">
@@ -100,14 +101,40 @@
   </header>
   <main class="center-main">
     <div class="summary-badge" id="summary-count">0</div>
-    <p class="summary-sub">questions in this deck</p>
+    <p class="summary-sub" id="summary-sub">questions in this deck</p>
     <div id="due-callout" class="due-callout">0 due for review</div>
     <div class="mode-choice">
       <button id="start-smart-review" class="btn btn-primary btn-full">Smart Review</button>
       <button id="start-flashcards" class="btn btn-secondary btn-full">Study all flashcards</button>
       <button id="start-mcq" class="btn btn-secondary btn-full">Take quiz</button>
+      <button id="manage-cards-btn" class="btn btn-secondary btn-full">Manage cards</button>
     </div>
     <button id="summary-delete" class="btn btn-text">Delete this deck</button>
+  </main>
+</section>
+
+<!-- MANAGE CARDS -->
+<section id="screen-manage" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Back">←</button>
+    <div class="wordmark" id="manage-title">Manage cards</div>
+  </header>
+  <main class="home-main">
+    <div class="card-panel">
+      <label class="field-label" for="card-front">Front <span class="optional">(question)</span></label>
+      <textarea id="card-front" class="textarea-small" placeholder="e.g. What is the powerhouse of the cell?"></textarea>
+
+      <label class="field-label" for="card-back">Back <span class="optional">(answer)</span></label>
+      <textarea id="card-back" class="textarea-small" placeholder="e.g. The mitochondrion"></textarea>
+
+      <button id="card-save-btn" class="btn btn-primary btn-full">Add card</button>
+      <button id="card-cancel-btn" class="btn-text hidden">Cancel edit</button>
+    </div>
+
+    <div>
+      <h2 class="section-title" id="manage-count-label">0 cards</h2>
+      <div id="manage-card-list" class="deck-list"></div>
+    </div>
   </main>
 </section>
 
