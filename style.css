@@ -21,18 +21,17 @@
 }
 
 :root {
-  --ink: #0c0a08;
-  --panel: #16130f;
-  --panel-2: #1e1a14;
-  --hair: #322c22;
-  --hair-soft: #241f18;
-  --ivory: #f2ecdf;
-  --taupe: #948a76;
-  --gold: #c9a961;
-  --gold-bright: #dcc287;
+  --paper: #f9f4e8;
+  --panel: #f9f4e8;
+  --panel-2: #f1e8d2;
+  --hair: #ddcca0;
+  --ink: #241c10;
+  --taupe: #7d7057;
+  --gold: #a3781f;
+  --gold-bright: #c99a3a;
   --gold-dim: #8a6a3f;
-  --sage: #8fa98f;
-  --oxblood: #a85c50;
+  --sage: #4c6b47;
+  --oxblood: #8f4235;
   --radius: 14px;
   --serif: 'Fraunces', Georgia, 'Iowan Old Style', serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -46,8 +45,8 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--ink);
-  color: var(--ivory);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--sans);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: contain;
@@ -55,8 +54,8 @@ html, body {
 
 body {
   background:
-    radial-gradient(1000px 520px at 18% -14%, rgba(201, 169, 97, 0.05), transparent 58%),
-    var(--ink);
+    radial-gradient(1000px 520px at 18% -14%, rgba(163, 120, 31, 0.09), transparent 58%),
+    var(--paper);
   min-height: 100vh;
   position: relative;
 }
@@ -106,7 +105,7 @@ button { font-family: inherit; }
 .icon-btn {
   background: transparent;
   border: 1px solid var(--hair);
-  color: var(--ivory);
+  color: var(--ink);
   width: 38px;
   height: 38px;
   border-radius: 10px;
@@ -202,7 +201,7 @@ button { font-family: inherit; }
   line-height: 1.25;
   letter-spacing: 0.01em;
 }
-.badge.earned .badge-label { color: var(--ivory); }
+.badge.earned .badge-label { color: var(--ink); }
 
 /* ---------------- Reminder toggle ---------------- */
 .reminder-row {
@@ -261,7 +260,7 @@ input[type="text"], textarea {
   background: transparent;
   border: 1px solid var(--hair);
   border-radius: 10px;
-  color: var(--ivory);
+  color: var(--ink);
   padding: 12px 14px;
   font-size: 1rem;
   font-family: var(--sans);
@@ -291,7 +290,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
 }
 .btn-secondary {
   background: transparent;
-  color: var(--ivory);
+  color: var(--ink);
   border: 1px solid var(--hair);
 }
 .btn-text {
@@ -371,7 +370,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   transform: translate(-50%, 20px);
   background: var(--panel);
   border: 1px solid var(--gold-dim);
-  color: var(--ivory);
+  color: var(--ink);
   padding: 13px 20px;
   border-radius: 10px;
   font-size: 0.86rem;
@@ -457,7 +456,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.stat-pill b { color: var(--ivory); margin-left: 5px; font-family: var(--serif); font-weight: 560; font-size: 0.95rem; }
+.stat-pill b { color: var(--ink); margin-left: 5px; font-family: var(--serif); font-weight: 560; font-size: 0.95rem; }
 .stat-pill.known b { color: var(--sage); }
 .stat-pill.learning b { color: var(--gold); }
 
@@ -492,7 +491,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   inset: 0;
   border-radius: 16px;
   border: 1px solid var(--hair);
-  background: var(--ink);
+  background: var(--paper);
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
@@ -581,7 +580,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   background: transparent;
   border: 1px solid var(--hair);
   border-left: 3px solid var(--hair);
-  color: var(--ivory);
+  color: var(--ink);
   border-radius: 8px;
   padding: 14px 16px;
   font-size: 0.95rem;
@@ -607,7 +606,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
 }
 .result-line.xp { border-left-color: var(--gold-dim); color: var(--gold); }
 .result-line.levelup { border-left-color: var(--sage); color: var(--sage); }
-.result-line.badge { border-left-color: var(--gold); color: var(--gold-bright); }
+.result-line.badge { border-left-color: var(--gold); color: var(--gold); }
 .missed-wrap { width: 100%; text-align: left; }
 .missed-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .missed-item {
@@ -616,7 +615,7 @@ textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
   padding: 13px 15px;
   font-size: 0.88rem;
 }
-.missed-q { font-family: var(--serif); color: var(--ivory); margin-bottom: 6px; white-space: pre-line; }
+.missed-q { font-family: var(--serif); color: var(--ink); margin-bottom: 6px; white-space: pre-line; }
 .missed-a { color: var(--taupe); font-size: 0.82rem; }
 .missed-a b { color: var(--sage); font-weight: 600; }
 

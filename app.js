@@ -756,7 +756,7 @@
     const canvas = $("#confetti-canvas");
     if (!canvas.width) resizeConfettiCanvas();
     const dpr = window.devicePixelRatio || 1;
-    const colors = ["#c9a961", "#dcc287", "#f2ecdf", "#8fa98f"];
+    const colors = ["#a3781f", "#c99a3a", "#4c6b47", "#8f4235"];
     const cx = canvas.width / 2;
     const n = count || 24;
     for (let i = 0; i < n; i++) {
