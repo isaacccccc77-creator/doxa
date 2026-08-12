@@ -67,9 +67,10 @@
     return freq;
   }
 
-  function keywordScore(word, index, wordsInSentence, freq, sentenceCount) {
+  function keywordScore(word, index, wordsInSentence, freq, sentenceCount, avoidSet) {
     const lw = word.toLowerCase();
     if (STOPWORDS.has(lw)) return -1;
+    if (avoidSet && avoidSet.has(lw)) return -1;
     if (/^\d+$/.test(word) && word.length <= 1) return -1;
     if (word.length < 3 && !/^\d+$/.test(word)) return -1;
 
@@ -77,8 +78,13 @@
     const f = freq.get(lw) || 1;
     // Reward terms that recur (central concepts) but punish ones that are
     // in almost every sentence (too generic to be an interesting blank).
+    // Within a small handful of sentences (typically one slide's worth of
+    // bullets), recurrence is much weaker evidence of being a genuine
+    // central concept — it's often just shared scaffolding across
+    // parallel bullets ("X can do A" / "X can do B"), where the point of
+    // each sentence is precisely the word that *isn't* repeated.
     const docRatio = f / Math.max(1, sentenceCount);
-    if (f >= 2 && docRatio < 0.6) score += 3;
+    if (f >= 2 && docRatio < 0.6) score += sentenceCount >= 6 ? 3 : 1;
     if (f === 1) score += 1;
     if (docRatio > 0.75) score -= 3;
 
@@ -86,18 +92,31 @@
     if (isCapitalizedWord(word) && index > 0) score += 2.5;
     if (/^\d/.test(word)) score += 2;
     if (/^[A-Z]{2,}$/.test(word)) score += 2; // acronym
+    // Word right after "to" is very often an infinitive verb ("used to
+    // give", "helps to reveal") — those make weak blanks compared to the
+    // noun/concept the verb is acting on, and in parallel bullet lists
+    // ("X can be used to A" / "...to B" / "...to C") the repeated verb
+    // would otherwise win on frequency alone.
+    if (index > 0 && wordsInSentence[index - 1].toLowerCase() === "to") score -= 2.5;
 
     return score;
   }
 
-  function pickKeywords(sentence, freq, sentenceCount, max) {
+  function pickKeywords(sentence, freq, sentenceCount, max, avoidSet) {
     const words = tokenize(sentence);
     const scored = words.map((w, i) => ({
       word: w,
       index: i,
-      score: keywordScore(w, i, words, freq, sentenceCount),
+      score: keywordScore(w, i, words, freq, sentenceCount, avoidSet),
     })).filter(x => x.score > 0);
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // Tie-break toward the rarer word: all else equal, it's more likely
+      // to be the sentence's specific point than shared scaffolding.
+      const fa = freq.get(a.word.toLowerCase()) || 1;
+      const fb = freq.get(b.word.toLowerCase()) || 1;
+      return fa - fb;
+    });
     const chosen = [];
     const usedLower = new Set();
     for (const cand of scored) {
@@ -110,6 +129,15 @@
     return chosen;
   }
 
+  // Words a term/blank should never start with — almost never the start of
+  // a real standalone concept, usually a sign the sentence was picked up
+  // mid-thought (e.g. "By doing so, viewers are..." -> a bad "term").
+  const BAD_TERM_STARTS = new Set([
+    "by", "so", "this", "that", "these", "those", "it", "there", "then",
+    "thus", "also", "however", "when", "while", "because", "since",
+    "although", "if", "as", "and", "but", "or",
+  ]);
+
   const DEFINITION_RE = /^(.{2,40}?)\s+(?:is|are|refers to|means|represents|denotes|is defined as|was|were)\s+(.{8,})[.]?$/i;
 
   function tryDefinitionPair(sentence) {
@@ -120,6 +148,7 @@
     const termWords = term.split(/\s+/);
     if (termWords.length > 6 || term.length < 2) return null;
     if (def.split(/\s+/).length < 2) return null;
+    if (BAD_TERM_STARTS.has(termWords[0].toLowerCase())) return null;
     return { term, definition: def };
   }
 
@@ -167,9 +196,17 @@
   function generateQuiz(text, opts) {
     opts = opts || {};
     const maxQuestions = opts.maxQuestions || 25;
+    const avoidSet = new Set((opts.avoidWords || []).map((w) => w.toLowerCase()));
     const sentences = splitSentences(text).filter((s) => {
       const wc = s.split(/\s+/).length;
-      return wc >= 5 && wc <= 45;
+      if (wc < 5 || wc > 45) return false;
+      if (s.trim().endsWith("?")) return false;
+      // Sentences starting with a connector ("By doing so...", "This...")
+      // are continuation fragments that only make sense next to whatever
+      // came before them — weak and often confusing as a standalone card.
+      const firstWord = s.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, "");
+      if (BAD_TERM_STARTS.has(firstWord)) return false;
+      return true;
     });
     if (sentences.length === 0) return { questions: [], keywordPool: [] };
 
@@ -188,6 +225,11 @@
 
     const questions = [];
     const usedSentences = new Set();
+    // Grows as sentences are processed so the same word doesn't get picked
+    // as the blank for two different sibling sentences in a row (e.g. two
+    // bullets that both happen to mention "character" but differ in the
+    // actually-interesting word after it).
+    const usedAnswers = new Set(avoidSet);
 
     for (const sentence of sentences) {
       if (questions.length >= maxQuestions) break;
@@ -210,10 +252,11 @@
           sourceSentence: sentence,
         });
         usedSentences.add(sentence);
+        usedAnswers.add(defPair.term.toLowerCase());
         continue;
       }
 
-      const picks = pickKeywords(sentence, freq, sentenceCount, 1);
+      const picks = pickKeywords(sentence, freq, sentenceCount, 1, usedAnswers);
       if (picks.length === 0) continue;
       const keyword = picks[0];
       const blanked = cloze(sentence, keyword);
@@ -227,6 +270,7 @@
         answerShort: keyword.word,
         sourceSentence: sentence,
       });
+      usedAnswers.add(keyword.word.toLowerCase());
       usedSentences.add(sentence);
     }
 
@@ -263,24 +307,35 @@
     }
   }
 
+  // Strips a leading list marker ("(a) ", "b) ", "1. ", "12) ") from a
+  // line — common on sub-points within a bullet, and otherwise leaks into
+  // the extracted term/answer (e.g. "What is (a) The camera movement...").
+  const LIST_MARKER_RE = /^\(?[a-zA-Z0-9]{1,2}\)?[.)]\s+/;
+
   // Slide decks aren't prose — a slide's bullets are often sentence
-  // fragments, so running the whole thing through generateQuiz's sentence
-  // parser directly would perform poorly. Instead: each slide with a title
-  // gets one direct "what do you know about X" card from its own bullets
-  // (reliable regardless of how fragment-y the bullets are), and the
-  // bullets are additionally fed through the existing prose pipeline to
-  // pick up any atomic, well-formed facts as their own cards.
+  // fragments, so running the whole deck through generateQuiz's sentence
+  // parser as one blob would perform poorly, and would also let a
+  // recurring word (most often the slide's own title) get picked as the
+  // cloze blank for every sibling bullet instead of each bullet's actual
+  // distinguishing fact. So each slide is processed on its own: one direct
+  // "what do you know about X" card built straight from its own bullets
+  // (reliable regardless of how fragmented the bullets are), plus that
+  // slide's bullets run individually through the prose pipeline — with the
+  // slide's own title words excluded from consideration as a blank — to
+  // pick up well-formed atomic facts as their own cards.
   function generateQuizFromSlides(slides, opts) {
     opts = opts || {};
     const maxQuestions = opts.maxQuestions || 60;
 
     const titleCards = [];
+    const atomicCards = [];
     const usedTitles = new Set();
-    const bulletSentences = [];
 
     for (const slide of slides) {
       const title = (slide.title || "").trim();
-      const bullets = (slide.bullets || []).map((b) => b.trim()).filter(Boolean);
+      let bullets = (slide.bullets || [])
+        .map((b) => b.trim().replace(LIST_MARKER_RE, ""))
+        .filter(Boolean);
 
       if (title && bullets.length > 0 && !usedTitles.has(title.toLowerCase())) {
         usedTitles.add(title.toLowerCase());
@@ -293,21 +348,27 @@
         });
       }
 
-      for (let b of bullets) {
-        if (!/[.!?]$/.test(b)) b += ".";
-        bulletSentences.push(b);
+      // A title with no bullets beneath it is usually just a section label
+      // ("The end") — but sometimes it's the slide's only text because it
+      // happens to be one standalone sentence (a definition slide, a case
+      // study answer). Treat anything long enough to actually be a
+      // sentence as prose instead of silently dropping it.
+      if (bullets.length === 0 && title.split(/\s+/).length >= 5) {
+        bullets = [title];
+      }
+      if (bullets.length === 0) continue;
+
+      const slideText = bullets
+        .map((b) => (/[.!?]$/.test(b) ? b : b + "."))
+        .join(" ");
+      const perSlide = generateQuiz(slideText, {
+        maxQuestions: 20,
+        avoidWords: title ? title.split(/\s+/) : [],
+      });
+      for (const q of perSlide.questions) {
+        if (!usedTitles.has(q.answerShort.toLowerCase())) atomicCards.push(q);
       }
     }
-
-    const bulletText = bulletSentences.join(" ");
-    const bulletResult = bulletText.trim()
-      ? generateQuiz(bulletText, { maxQuestions: Math.max(0, maxQuestions - titleCards.length) })
-      : { questions: [] };
-
-    // Skip atomic cards that just repeat a title card's own topic.
-    const atomicCards = bulletResult.questions.filter(
-      (q) => !usedTitles.has(q.answerShort.toLowerCase())
-    );
 
     const combined = titleCards.concat(atomicCards).slice(0, maxQuestions);
     combined.forEach((q, i) => (q.id = "sl" + i));

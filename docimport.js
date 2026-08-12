@@ -97,9 +97,10 @@
         }
       }
 
-      // No explicit title placeholder on this slide — fall back to the
-      // first text found rather than losing the slide's topic entirely.
-      if (!title && bullets.length > 0) title = bullets.shift();
+      // No explicit title placeholder on this slide — leave title empty
+      // and keep all text as body content (generateQuizFromSlides treats
+      // a title-less slide as prose rather than losing it), instead of
+      // fabricating a fake title from the first line.
       if (!title && bullets.length === 0) continue; // image-only/blank slide
 
       slides.push({ title, bullets });
