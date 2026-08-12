@@ -64,14 +64,12 @@
       <label class="field-label" for="deck-title">Deck name <span class="optional">(optional)</span></label>
       <input id="deck-title" type="text" placeholder="e.g. Bio Chapter 4" maxlength="60" />
 
-      <label class="field-label" for="notes-input">Paste your notes</label>
-      <textarea id="notes-input" placeholder="Paste a paragraph, chapter summary, or lecture notes here. The longer and more specific, the better the quiz."></textarea>
-      <div class="hint" id="notes-hint">Tip: full sentences work best — definitions like &ldquo;X is Y&rdquo; make great questions.</div>
-
-      <button id="generate-btn" class="btn btn-primary btn-full">Generate quiz</button>
-      <button id="upload-btn" class="btn-text">Or upload a Word, PowerPoint, or PDF file</button>
+      <button id="upload-btn" class="btn btn-primary btn-full">Upload PowerPoint, Google Docs/Slides, or PDF</button>
+      <div class="hint">AI reads it and builds your flashcards automatically.</div>
       <input id="upload-file" type="file" accept=".docx,.pptx,.pdf,.txt" class="hidden" />
-      <button id="create-empty-btn" class="btn-text">Or create an empty deck to build by hand</button>
+
+      <button id="create-empty-btn" class="btn btn-secondary btn-full">Create flashcards by hand</button>
+      <div class="hint">Start an empty deck and add your own front → back cards.</div>
     </div>
 
     <div id="saved-decks-wrap" class="hidden">

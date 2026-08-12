@@ -23,6 +23,7 @@
      "what what's when when's where where's which while who who's whom why why's with won't " +
      "would wouldn't you you'd you'll you're you've your yours yourself yourselves also often " +
      "however thus therefore may might one two three within across upon many much several like " +
+     "sometimes usually typically commonly frequently generally occasionally rarely " +
      "使用 include includes including used uses using make makes making etc").split(" ")
   );
 
@@ -140,16 +141,36 @@
 
   const DEFINITION_RE = /^(.{2,40}?)\s+(?:is|are|refers to|means|represents|denotes|is defined as|was|were)\s+(.{8,})[.]?$/i;
 
+  // A term that's just a pronoun ("They are sometimes called...") isn't a
+  // standalone concept — it's referring back to something earlier in the
+  // notes that a flashcard alone can't see, so "What is They?" is nonsense.
+  const PRONOUN_TERMS = new Set([
+    "it", "they", "he", "she", "this", "that", "these", "those", "who",
+    "which", "we", "i", "you",
+  ]);
+
   function tryDefinitionPair(sentence) {
     const m = sentence.match(DEFINITION_RE);
     if (!m) return null;
     let term = m[1].trim().replace(/^(the|a|an)\s+/i, "");
+    // "The nucleolus, found inside the nucleus, is responsible..." — an
+    // appositive clause between commas isn't part of the term itself.
+    term = term.split(",")[0].trim();
     let def = m[2].trim().replace(/[.\s]+$/, "");
     const termWords = term.split(/\s+/);
     if (termWords.length > 6 || term.length < 2) return null;
     if (def.split(/\s+/).length < 2) return null;
     if (BAD_TERM_STARTS.has(termWords[0].toLowerCase())) return null;
+    if (termWords.length === 1 && PRONOUN_TERMS.has(term.toLowerCase())) return null;
     return { term, definition: def };
+  }
+
+  // A line that's entirely uppercase letters (ignoring digits/punctuation)
+  // reads as a section banner or poster slide ("CAUSES OF WORLD WAR I"),
+  // not real informative content — real sentences don't shout every word.
+  function isShoutingBanner(sentence) {
+    const letters = sentence.replace(/[^a-zA-Z]/g, "");
+    return letters.length > 3 && letters === letters.toUpperCase() && letters !== letters.toLowerCase();
   }
 
   function cloze(sentence, keyword) {
@@ -201,6 +222,7 @@
       const wc = s.split(/\s+/).length;
       if (wc < 5 || wc > 45) return false;
       if (s.trim().endsWith("?")) return false;
+      if (isShoutingBanner(s)) return false;
       // Sentences starting with a connector ("By doing so...", "This...")
       // are continuation fragments that only make sense next to whatever
       // came before them — weak and often confusing as a standalone card.

@@ -415,38 +415,6 @@
     showScreen("screen-summary");
   }
 
-  $("#generate-btn").addEventListener("click", () => {
-    const notes = $("#notes-input").value.trim();
-    if (notes.split(/\s+/).length < 12) {
-      toast("Add a bit more detail — a few full sentences works best.");
-      return;
-    }
-    showScreen("screen-loading");
-    setTimeout(() => {
-      const { questions } = QuizGen.generateQuiz(notes, { maxQuestions: 25 });
-      if (questions.length === 0) {
-        toast("Couldn't find enough to quiz on — try longer, more specific notes.");
-        showScreen("screen-home");
-        return;
-      }
-      const titleInput = $("#deck-title").value.trim();
-      const title = titleInput || autoTitle(notes);
-      const deck = {
-        id: "d" + Date.now() + Math.random().toString(36).slice(2, 7),
-        title,
-        notes,
-        createdAt: Date.now(),
-        questions,
-        mastery: {},
-      };
-      upsertDeck(deck);
-      checkBadges();
-      $("#notes-input").value = "";
-      $("#deck-title").value = "";
-      openDeckSummary(deck);
-    }, 250);
-  });
-
   function buildDeckFromQuestions(title, notes, questions) {
     return {
       id: "d" + Date.now() + Math.random().toString(36).slice(2, 7),
@@ -507,11 +475,6 @@
     }
   });
 
-  function autoTitle(notes) {
-    const words = notes.split(/\s+/).slice(0, 6).join(" ");
-    return words.length < notes.length ? words + "…" : words;
-  }
-
   $("#create-empty-btn").addEventListener("click", () => {
     const titleInput = $("#deck-title").value.trim();
     const deck = {
@@ -524,7 +487,6 @@
     };
     upsertDeck(deck);
     checkBadges();
-    $("#notes-input").value = "";
     $("#deck-title").value = "";
     openDeckSummary(deck);
   });
