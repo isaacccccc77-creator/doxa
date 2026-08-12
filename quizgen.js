@@ -99,6 +99,11 @@
     // ("X can be used to A" / "...to B" / "...to C") the repeated verb
     // would otherwise win on frequency alone.
     if (index > 0 && wordsInSentence[index - 1].toLowerCase() === "to") score -= 2.5;
+    // Manner adverbs ("physically", "directly", "quickly") describe *how*
+    // something happens rather than the fact being tested, but their
+    // length alone tends to outscore the actual concept word in the same
+    // sentence — de-prioritize them so a real noun/term wins instead.
+    if (/ly$/i.test(word) && word.length > 6 && !isCapitalizedWord(word)) score -= 2.5;
 
     return score;
   }
@@ -218,7 +223,7 @@
     opts = opts || {};
     const maxQuestions = opts.maxQuestions || 25;
     const avoidSet = new Set((opts.avoidWords || []).map((w) => w.toLowerCase()));
-    const sentences = splitSentences(text).filter((s) => {
+    const sentences = splitSentences(text).map(stripTrailingParenthetical).filter((s) => {
       const wc = s.split(/\s+/).length;
       if (wc < 5 || wc > 45) return false;
       if (s.trim().endsWith("?")) return false;
@@ -334,6 +339,36 @@
   // the extracted term/answer (e.g. "What is (a) The camera movement...").
   const LIST_MARKER_RE = /^\(?[a-zA-Z0-9]{1,2}\)?[.)]\s+/;
 
+  // A short parenthetical tacked onto the end of a bullet ("...vulnerability
+  // (Tilt down).") is slide-note shorthand for the presenter, not part of
+  // the sentence — quoted back verbatim as flashcard context it just reads
+  // as clutter, so drop it once its job (picking a distinguishing keyword)
+  // is done.
+  function stripTrailingParenthetical(sentence) {
+    return sentence.replace(/\s*\([^()]{1,60}\)\s*([.!?]?)\s*$/, "$1").trim();
+  }
+
+  // Picks the most useful bullets for a slide's summary answer instead of
+  // dumping every line verbatim — prefers a clear "X is Y" definition and
+  // the slide's opening bullet (usually the topic sentence), then longer,
+  // more specific bullets, and keeps them in their original order. A
+  // discussion-prompt bullet ("Where is this character going?") never
+  // belongs in a summary answer, so it's excluded from candidacy entirely.
+  function pickBestBullets(bullets, max) {
+    const candidates = bullets.filter((b) => !b.trim().endsWith("?"));
+    const pool = candidates.length > 0 ? candidates : bullets;
+    if (pool.length <= max) return pool;
+    const scored = pool.map((b, i) => {
+      let score = 0;
+      if (DEFINITION_RE.test(b)) score += 5;
+      if (i === 0) score += 2;
+      score += Math.min(b.split(/\s+/).length / 6, 4);
+      return { b, i, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, max).sort((a, b) => a.i - b.i).map((c) => c.b);
+  }
+
   // Slide decks aren't prose — a slide's bullets are often sentence
   // fragments, so running the whole deck through generateQuiz's sentence
   // parser as one blob would perform poorly, and would also let a
@@ -356,7 +391,7 @@
     for (const slide of slides) {
       const title = (slide.title || "").trim();
       let bullets = (slide.bullets || [])
-        .map((b) => b.trim().replace(LIST_MARKER_RE, ""))
+        .map((b) => stripTrailingParenthetical(b.trim().replace(LIST_MARKER_RE, "")))
         .filter(Boolean);
 
       if (title && bullets.length > 0 && !usedTitles.has(title.toLowerCase())) {
@@ -364,7 +399,9 @@
         titleCards.push({
           type: "define",
           prompt: `What do you know about ${title}?`,
-          answer: bullets.join("; "),
+          answer: pickBestBullets(bullets, 2)
+            .map((b) => (/[.!?]$/.test(b) ? b : b + "."))
+            .join(" "),
           answerShort: title,
           sourceSentence: "",
         });
