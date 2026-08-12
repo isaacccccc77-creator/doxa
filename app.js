@@ -466,7 +466,7 @@
     if (!file) return;
 
     const name = file.name.toLowerCase();
-    const titleFromFile = file.name.replace(/\.(docx|pptx|txt)$/i, "");
+    const titleFromFile = file.name.replace(/\.(docx|pptx|pdf|txt)$/i, "");
     showScreen("screen-loading");
 
     try {
@@ -475,6 +475,11 @@
         const slides = await DocImport.parsePptx(await file.arrayBuffer());
         const { questions } = QuizGen.generateQuizFromSlides(slides);
         if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in those slides.");
+        deck = buildDeckFromQuestions(titleFromFile, "", questions);
+      } else if (name.endsWith(".pdf")) {
+        const slides = await DocImport.parsePdf(await file.arrayBuffer());
+        const { questions } = QuizGen.generateQuizFromSlides(slides);
+        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that PDF.");
         deck = buildDeckFromQuestions(titleFromFile, "", questions);
       } else if (name.endsWith(".docx")) {
         const text = await DocImport.parseDocx(await file.arrayBuffer());
@@ -487,7 +492,7 @@
         if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that file.");
         deck = buildDeckFromQuestions(titleFromFile, text, questions);
       } else {
-        throw new Error("Unsupported file type — upload a .docx, .pptx, or .txt file.");
+        throw new Error("Unsupported file type — upload a .docx, .pptx, .pdf, or .txt file.");
       }
 
       const titleInput = $("#deck-title").value.trim();

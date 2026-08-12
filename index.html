@@ -69,8 +69,8 @@
       <div class="hint" id="notes-hint">Tip: full sentences work best — definitions like &ldquo;X is Y&rdquo; make great questions.</div>
 
       <button id="generate-btn" class="btn btn-primary btn-full">Generate quiz</button>
-      <button id="upload-btn" class="btn-text">Or upload a Word / PowerPoint file</button>
-      <input id="upload-file" type="file" accept=".docx,.pptx,.txt" class="hidden" />
+      <button id="upload-btn" class="btn-text">Or upload a Word, PowerPoint, or PDF file</button>
+      <input id="upload-file" type="file" accept=".docx,.pptx,.pdf,.txt" class="hidden" />
       <button id="create-empty-btn" class="btn-text">Or create an empty deck to build by hand</button>
     </div>
 
@@ -209,6 +209,7 @@
 </section>
 
 <script src="lib/jszip.min.js"></script>
+<script src="lib/pdf.min.js"></script>
 <script src="docimport.js"></script>
 <script src="quizgen.js"></script>
 <script src="app.js"></script>

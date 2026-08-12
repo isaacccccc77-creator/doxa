@@ -1,4 +1,4 @@
-const CACHE = "doxa-v5";
+const CACHE = "doxa-v6";
 const SHELL = [
   "./",
   "./index.html",
@@ -7,6 +7,8 @@ const SHELL = [
   "./quizgen.js",
   "./docimport.js",
   "./lib/jszip.min.js",
+  "./lib/pdf.min.js",
+  "./lib/pdf.worker.min.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
