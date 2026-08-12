@@ -1,10 +1,12 @@
-const CACHE = "doxa-v4";
+const CACHE = "doxa-v5";
 const SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./quizgen.js",
+  "./docimport.js",
+  "./lib/jszip.min.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

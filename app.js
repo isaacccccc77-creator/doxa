@@ -447,6 +447,61 @@
     }, 250);
   });
 
+  function buildDeckFromQuestions(title, notes, questions) {
+    return {
+      id: "d" + Date.now() + Math.random().toString(36).slice(2, 7),
+      title: title || "New deck",
+      notes,
+      createdAt: Date.now(),
+      questions,
+      mastery: {},
+    };
+  }
+
+  $("#upload-btn").addEventListener("click", () => $("#upload-file").click());
+
+  $("#upload-file").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const name = file.name.toLowerCase();
+    const titleFromFile = file.name.replace(/\.(docx|pptx|txt)$/i, "");
+    showScreen("screen-loading");
+
+    try {
+      let deck;
+      if (name.endsWith(".pptx")) {
+        const slides = await DocImport.parsePptx(await file.arrayBuffer());
+        const { questions } = QuizGen.generateQuizFromSlides(slides);
+        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in those slides.");
+        deck = buildDeckFromQuestions(titleFromFile, "", questions);
+      } else if (name.endsWith(".docx")) {
+        const text = await DocImport.parseDocx(await file.arrayBuffer());
+        const { questions } = QuizGen.generateQuiz(text, { maxQuestions: 40 });
+        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that document.");
+        deck = buildDeckFromQuestions(titleFromFile, text, questions);
+      } else if (name.endsWith(".txt")) {
+        const text = (await file.text()).trim();
+        const { questions } = QuizGen.generateQuiz(text, { maxQuestions: 40 });
+        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that file.");
+        deck = buildDeckFromQuestions(titleFromFile, text, questions);
+      } else {
+        throw new Error("Unsupported file type — upload a .docx, .pptx, or .txt file.");
+      }
+
+      const titleInput = $("#deck-title").value.trim();
+      if (titleInput) deck.title = titleInput;
+      upsertDeck(deck);
+      checkBadges();
+      $("#deck-title").value = "";
+      openDeckSummary(deck);
+    } catch (err) {
+      toast((err && err.message) || "Couldn't read that file.");
+      showScreen("screen-home");
+    }
+  });
+
   function autoTitle(notes) {
     const words = notes.split(/\s+/).slice(0, 6).join(" ");
     return words.length < notes.length ? words + "…" : words;

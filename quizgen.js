@@ -263,5 +263,61 @@
     }
   }
 
-  global.QuizGen = { generateQuiz, splitSentences, rebuildChoices };
+  // Slide decks aren't prose — a slide's bullets are often sentence
+  // fragments, so running the whole thing through generateQuiz's sentence
+  // parser directly would perform poorly. Instead: each slide with a title
+  // gets one direct "what do you know about X" card from its own bullets
+  // (reliable regardless of how fragment-y the bullets are), and the
+  // bullets are additionally fed through the existing prose pipeline to
+  // pick up any atomic, well-formed facts as their own cards.
+  function generateQuizFromSlides(slides, opts) {
+    opts = opts || {};
+    const maxQuestions = opts.maxQuestions || 60;
+
+    const titleCards = [];
+    const usedTitles = new Set();
+    const bulletSentences = [];
+
+    for (const slide of slides) {
+      const title = (slide.title || "").trim();
+      const bullets = (slide.bullets || []).map((b) => b.trim()).filter(Boolean);
+
+      if (title && bullets.length > 0 && !usedTitles.has(title.toLowerCase())) {
+        usedTitles.add(title.toLowerCase());
+        titleCards.push({
+          type: "define",
+          prompt: `What do you know about ${title}?`,
+          answer: bullets.join("; "),
+          answerShort: title,
+          sourceSentence: "",
+        });
+      }
+
+      for (let b of bullets) {
+        if (!/[.!?]$/.test(b)) b += ".";
+        bulletSentences.push(b);
+      }
+    }
+
+    const bulletText = bulletSentences.join(" ");
+    const bulletResult = bulletText.trim()
+      ? generateQuiz(bulletText, { maxQuestions: Math.max(0, maxQuestions - titleCards.length) })
+      : { questions: [] };
+
+    // Skip atomic cards that just repeat a title card's own topic.
+    const atomicCards = bulletResult.questions.filter(
+      (q) => !usedTitles.has(q.answerShort.toLowerCase())
+    );
+
+    const combined = titleCards.concat(atomicCards).slice(0, maxQuestions);
+    combined.forEach((q, i) => (q.id = "sl" + i));
+
+    rebuildChoices(combined);
+    shuffle(combined);
+    combined.forEach((q, i) => (q.order = i));
+
+    return { questions: combined };
+  }
+
+  global.QuizGen = { generateQuiz, splitSentences, rebuildChoices, generateQuizFromSlides };
 })(window);
