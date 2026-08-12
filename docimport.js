@@ -216,7 +216,11 @@
     if (typeof pdfjsLib === "undefined") {
       throw new Error("PDF support failed to load — try refreshing the page.");
     }
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
+    // A bundled single-file build may pre-set this to a data: URI before
+    // this ever runs — don't clobber it with the normal relative path.
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
+    }
 
     let doc;
     try {
