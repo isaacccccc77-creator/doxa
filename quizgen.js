@@ -29,8 +29,19 @@
 
   const ABBREVS = new Set(["mr", "mrs", "ms", "dr", "prof", "sr", "jr", "vs", "etc", "e.g", "i.e", "st", "no", "fig", "approx"]);
 
+  // Word-processor/slide exports occasionally drop the space between two
+  // runs of text (a known quirk when a document mixes formatting mid-
+  // sentence), gluing a common short word onto the one before it —
+  // "Videography isthe process..." instead of "...is the process...".
+  // Narrow and safe: none of these glued pairs are real English words, so
+  // there's no ambiguity about whether a space belongs between them.
+  const GLUED_WORD_RE = /\b(is|are|was|were|has|have|had|will|can|could|should|would|may|might|does|do|did)(the|a|an|this|that|these|those|to|of|in|on|at|and)\b/gi;
+  function deglueWords(text) {
+    return text.replace(GLUED_WORD_RE, "$1 $2");
+  }
+
   function splitSentences(text) {
-    const clean = text.replace(/\s+/g, " ").trim();
+    const clean = deglueWords(text).replace(/\s+/g, " ").trim();
     if (!clean) return [];
     const raw = clean.split(/(?<=[.!?])\s+(?=[A-Z0-9"'“])/g);
     const out = [];
@@ -223,11 +234,12 @@
     opts = opts || {};
     const maxQuestions = opts.maxQuestions || 25;
     const avoidSet = new Set((opts.avoidWords || []).map((w) => w.toLowerCase()));
-    const sentences = splitSentences(text).map(stripTrailingParenthetical).filter((s) => {
+    const sentences = splitSentences(text).map(normalizeTrailingParenthetical).filter((s) => {
       const wc = s.split(/\s+/).length;
       if (wc < 5 || wc > 45) return false;
       if (s.trim().endsWith("?")) return false;
       if (isShoutingBanner(s)) return false;
+      if (isMetaInstruction(s)) return false;
       // Sentences starting with a connector ("By doing so...", "This...")
       // are continuation fragments that only make sense next to whatever
       // came before them — weak and often confusing as a standalone card.
@@ -339,13 +351,31 @@
   // the extracted term/answer (e.g. "What is (a) The camera movement...").
   const LIST_MARKER_RE = /^\(?[a-zA-Z0-9]{1,2}\)?[.)]\s+/;
 
-  // A short parenthetical tacked onto the end of a bullet ("...vulnerability
-  // (Tilt down).") is slide-note shorthand for the presenter, not part of
-  // the sentence — quoted back verbatim as flashcard context it just reads
-  // as clutter, so drop it once its job (picking a distinguishing keyword)
-  // is done.
-  function stripTrailingParenthetical(sentence) {
-    return sentence.replace(/\s*\([^()]{1,60}\)\s*([.!?]?)\s*$/, "$1").trim();
+  // A parenthetical tacked onto the end of a bullet is one of two things:
+  // a genuine aside/example ("(e.g. cruelty, fear)") that's safe to drop,
+  // or a short label distinguishing this line from sibling bullets
+  // ("...vulnerability (Tilt down)." vs "...dominance (Tilt up)."). The
+  // second case is NOT safe to delete — without it, two otherwise-
+  // identical-looking cards become indistinguishable. So: drop example
+  // asides, but relocate a short label to the front instead of losing it.
+  function normalizeTrailingParenthetical(sentence) {
+    const m = sentence.match(/^(.*?)\s*\(([^()]{1,60})\)\s*([.!?]?)\s*$/);
+    if (!m) return sentence;
+    const body = m[1].trim();
+    const label = m[2].trim();
+    const punct = m[3] || (body ? "." : "");
+    if (!body) return sentence;
+    if (/^(e\.g\.?|i\.e\.?|ex\.?|example)\b/i.test(label)) return body + punct;
+    if (label.split(/\s+/).length <= 4) return `${label}: ${body}${punct}`;
+    return body + punct;
+  }
+
+  // Presentation "housekeeping" lines talk about the lesson itself, not
+  // the subject matter ("Now let's look at a few movie scenes...", "make
+  // sure to ask yourself a few questions") — never worth a flashcard.
+  const META_INSTRUCTION_RE = /\blet'?s\b|\blet us\b|\bask yourself\b|\bwill be played\b|\bmoving on to\b|\bin the next slide\b|\bwe will now\b|\byou will need to\b|\btake a moment to\b/i;
+  function isMetaInstruction(sentence) {
+    return META_INSTRUCTION_RE.test(sentence);
   }
 
   // Picks the most useful bullets for a slide's summary answer instead of
@@ -355,10 +385,13 @@
   // discussion-prompt bullet ("Where is this character going?") never
   // belongs in a summary answer, so it's excluded from candidacy entirely.
   function pickBestBullets(bullets, max) {
-    const candidates = bullets.filter((b) => !b.trim().endsWith("?"));
-    const pool = candidates.length > 0 ? candidates : bullets;
-    if (pool.length <= max) return pool;
-    const scored = pool.map((b, i) => {
+    // If every bullet on the slide turns out to be a question or a
+    // housekeeping line, there's genuinely nothing worth summarizing —
+    // an empty result (no card at all) beats falling back to junk.
+    const candidates = bullets.filter((b) => !b.trim().endsWith("?") && !isMetaInstruction(b));
+    if (candidates.length === 0) return [];
+    if (candidates.length <= max) return candidates;
+    const scored = candidates.map((b, i) => {
       let score = 0;
       if (DEFINITION_RE.test(b)) score += 5;
       if (i === 0) score += 2;
@@ -391,20 +424,24 @@
     for (const slide of slides) {
       const title = (slide.title || "").trim();
       let bullets = (slide.bullets || [])
-        .map((b) => stripTrailingParenthetical(b.trim().replace(LIST_MARKER_RE, "")))
+        .map((b) => normalizeTrailingParenthetical(b.trim().replace(LIST_MARKER_RE, "")))
         .filter(Boolean);
 
       if (title && bullets.length > 0 && !usedTitles.has(title.toLowerCase())) {
-        usedTitles.add(title.toLowerCase());
-        titleCards.push({
-          type: "define",
-          prompt: `What do you know about ${title}?`,
-          answer: pickBestBullets(bullets, 2)
-            .map((b) => (/[.!?]$/.test(b) ? b : b + "."))
-            .join(" "),
-          answerShort: title,
-          sourceSentence: "",
-        });
+        const picked = pickBestBullets(bullets, 2);
+        // If nothing on the slide was worth summarizing (every bullet was
+        // a question or a housekeeping line), skip the card entirely
+        // rather than showing an empty or junk answer.
+        if (picked.length > 0) {
+          usedTitles.add(title.toLowerCase());
+          titleCards.push({
+            type: "define",
+            prompt: `What do you know about ${title}?`,
+            answer: picked.map((b) => (/[.!?]$/.test(b) ? b : b + ".")).join(" "),
+            answerShort: title,
+            sourceSentence: "",
+          });
+        }
       }
 
       // A title with no bullets beneath it is usually just a section label
