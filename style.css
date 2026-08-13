@@ -236,6 +236,16 @@ button { font-family: inherit; }
 .switch.on { border-color: var(--gold-dim); }
 .switch.on::after { transform: translateX(18px); background: var(--gold); }
 
+.ai-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+.ai-toggle-text { flex: 1; min-width: 0; }
+.ai-toggle-title { font-family: var(--serif); font-weight: 560; font-size: 0.9rem; }
+.ai-toggle-sub { font-size: 0.72rem; color: var(--taupe); margin-top: 2px; line-height: 1.4; }
+
 /* ---------------- Panels / forms ---------------- */
 .card-panel {
   border: 1px solid var(--hair);

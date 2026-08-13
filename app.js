@@ -288,6 +288,7 @@
     renderHeaderChips();
     renderBadgesRow();
     renderReminderUI();
+    syncAiToggleUI();
     const decks = loadDecks();
     const wrap = $("#saved-decks-wrap");
     const list = $("#saved-decks");
@@ -426,6 +427,75 @@
     };
   }
 
+  // Flattens the slide-shaped {title, bullets} array into readable text
+  // for the AI prompt — it doesn't need the structural distinction the
+  // free engine relies on, just the content in reading order.
+  function flattenSlidesForAI(slides) {
+    return slides
+      .map((s) => {
+        const heading = s.title ? `## ${s.title}\n` : "";
+        const bullets = (s.bullets || []).map((b) => `- ${b}`).join("\n");
+        return heading + bullets;
+      })
+      .join("\n\n");
+  }
+
+  function syncAiToggleUI() {
+    const sw = $("#ai-toggle-switch");
+    const on = DoxaAI.isEnabled();
+    sw.classList.toggle("on", on);
+    sw.setAttribute("aria-checked", String(on));
+    $("#ai-toggle-sub").textContent = DoxaAI.hasApiKey()
+      ? (on ? "On — uses your Anthropic API key" : "Off — using the free engine")
+      : "Free engine (default) — no key needed";
+  }
+
+  function openAiSettings() {
+    $("#ai-key-input").value = "";
+    $("#ai-key-input").placeholder = DoxaAI.hasApiKey() ? "Key saved — enter a new one to replace it" : "sk-ant-...";
+    $("#ai-key-clear-btn").classList.toggle("hidden", !DoxaAI.hasApiKey());
+    showScreen("screen-ai-settings");
+  }
+
+  function toggleAI() {
+    if (!DoxaAI.hasApiKey()) {
+      openAiSettings();
+      return;
+    }
+    DoxaAI.setEnabled(!DoxaAI.isEnabled());
+    syncAiToggleUI();
+  }
+  $("#ai-toggle-switch").addEventListener("click", toggleAI);
+  $("#ai-toggle-switch").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleAI(); }
+  });
+
+  $("#ai-settings-link").addEventListener("click", openAiSettings);
+
+  $("#ai-key-save-btn").addEventListener("click", () => {
+    const key = $("#ai-key-input").value.trim();
+    if (!key) {
+      toast("Paste your Anthropic API key first.");
+      return;
+    }
+    DoxaAI.setApiKey(key);
+    DoxaAI.setEnabled(true);
+    $("#ai-key-input").value = "";
+    toast("AI key saved — enhanced generation is on.");
+    renderHome();
+    showScreen("screen-home");
+  });
+
+  $("#ai-key-clear-btn").addEventListener("click", () => {
+    if (!confirm("Remove the saved AI key? AI-enhanced generation will turn off.")) return;
+    DoxaAI.setApiKey("");
+    DoxaAI.setEnabled(false);
+    $("#ai-key-input").value = "";
+    toast("AI key removed.");
+    renderHome();
+    showScreen("screen-home");
+  });
+
   $("#upload-btn").addEventListener("click", () => $("#upload-file").click());
 
   $("#upload-file").addEventListener("change", async (e) => {
@@ -438,30 +508,41 @@
     showScreen("screen-loading");
 
     try {
-      let deck;
+      let slides = null;
+      let text = "";
       if (name.endsWith(".pptx")) {
-        const slides = await DocImport.parsePptx(await file.arrayBuffer());
-        const { questions } = QuizGen.generateQuizFromSlides(slides);
-        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in those slides.");
-        deck = buildDeckFromQuestions(titleFromFile, "", questions);
+        slides = await DocImport.parsePptx(await file.arrayBuffer());
       } else if (name.endsWith(".pdf")) {
-        const slides = await DocImport.parsePdf(await file.arrayBuffer());
-        const { questions } = QuizGen.generateQuizFromSlides(slides);
-        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that PDF.");
-        deck = buildDeckFromQuestions(titleFromFile, "", questions);
+        slides = await DocImport.parsePdf(await file.arrayBuffer());
       } else if (name.endsWith(".docx")) {
-        const text = await DocImport.parseDocx(await file.arrayBuffer());
-        const { questions } = QuizGen.generateQuiz(text, { maxQuestions: 40 });
-        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that document.");
-        deck = buildDeckFromQuestions(titleFromFile, text, questions);
+        text = await DocImport.parseDocx(await file.arrayBuffer());
       } else if (name.endsWith(".txt")) {
-        const text = (await file.text()).trim();
-        const { questions } = QuizGen.generateQuiz(text, { maxQuestions: 40 });
-        if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that file.");
-        deck = buildDeckFromQuestions(titleFromFile, text, questions);
+        text = (await file.text()).trim();
       } else {
         throw new Error("Unsupported file type — upload a .docx, .pptx, .pdf, or .txt file.");
       }
+
+      let questions = [];
+      if (DoxaAI.isEnabled()) {
+        try {
+          const sourceText = slides ? flattenSlidesForAI(slides) : text;
+          questions = await DoxaAI.generateWithAI(sourceText, { maxQuestions: 40 });
+          QuizGen.rebuildChoices(questions);
+        } catch (aiErr) {
+          toast(((aiErr && aiErr.message) || "AI generation failed.") + " Used the free engine instead.");
+          questions = [];
+        }
+      }
+
+      if (questions.length === 0) {
+        const result = slides
+          ? QuizGen.generateQuizFromSlides(slides)
+          : QuizGen.generateQuiz(text, { maxQuestions: 40 });
+        questions = result.questions;
+      }
+
+      if (questions.length === 0) throw new Error("Couldn't find enough to quiz on in that file.");
+      const deck = buildDeckFromQuestions(titleFromFile, slides ? "" : text, questions);
 
       const titleInput = $("#deck-title").value.trim();
       if (titleInput) deck.title = titleInput;

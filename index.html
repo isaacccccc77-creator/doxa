@@ -68,6 +68,15 @@
       <div class="hint">AI reads it and builds your flashcards automatically.</div>
       <input id="upload-file" type="file" accept=".docx,.pptx,.pdf,.txt" class="hidden" />
 
+      <div class="ai-toggle-row">
+        <div class="ai-toggle-text">
+          <div class="ai-toggle-title">✨ Enhance with AI</div>
+          <div class="ai-toggle-sub" id="ai-toggle-sub">Free engine (default) — no key needed</div>
+        </div>
+        <div id="ai-toggle-switch" class="switch" role="switch" aria-checked="false" tabindex="0"></div>
+      </div>
+      <button id="ai-settings-link" class="btn-text">Manage AI key</button>
+
       <button id="create-empty-btn" class="btn btn-secondary btn-full">Create flashcards by hand</button>
       <div class="hint">Start an empty deck and add your own front → back cards.</div>
     </div>
@@ -81,6 +90,25 @@
       <button id="export-btn" class="btn-text">Export decks</button>
       <button id="import-btn" class="btn-text">Import decks</button>
       <input id="import-file" type="file" accept="application/json" class="hidden" />
+    </div>
+  </main>
+</section>
+
+<!-- AI SETTINGS -->
+<section id="screen-ai-settings" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-home" aria-label="Back">←</button>
+    <div class="wordmark">AI settings</div>
+  </header>
+  <main class="home-main">
+    <div class="card-panel">
+      <p class="hint">
+        Paste your own Anthropic API key to turn on AI-enhanced flashcards. The key is stored only in this browser (never sent to us) and is used to call Anthropic directly when you generate a deck. Using it will incur usage charges on your own Anthropic account, and generation needs an internet connection.
+      </p>
+      <label class="field-label" for="ai-key-input">Anthropic API key</label>
+      <input id="ai-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+      <button id="ai-key-save-btn" class="btn btn-primary btn-full">Save key</button>
+      <button id="ai-key-clear-btn" class="btn-text hidden">Remove saved key</button>
     </div>
   </main>
 </section>
@@ -210,6 +238,7 @@
 <script src="lib/pdf.min.js"></script>
 <script src="docimport.js"></script>
 <script src="quizgen.js"></script>
+<script src="ai.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
