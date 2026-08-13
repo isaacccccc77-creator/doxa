@@ -496,6 +496,15 @@
     showScreen("screen-home");
   });
 
+  $("#ai-demo-btn").addEventListener("click", () => {
+    const questions = DoxaAI.getDemoQuestions();
+    QuizGen.rebuildChoices(questions);
+    const deck = buildDeckFromQuestions("AI demo (sample cards)", "", questions);
+    upsertDeck(deck);
+    checkBadges();
+    openDeckSummary(deck);
+  });
+
   $("#upload-btn").addEventListener("click", () => $("#upload-file").click());
 
   $("#upload-file").addEventListener("change", async (e) => {

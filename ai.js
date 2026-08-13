@@ -161,5 +161,56 @@
     return questions;
   }
 
-  global.DoxaAI = { getApiKey, setApiKey, hasApiKey, isEnabled, setEnabled, generateWithAI };
+  // A canned example deck showing what AI-enhanced output looks like —
+  // no key, no network call, no cost. It exists purely so someone can
+  // see the difference in card quality before ever deciding whether to
+  // pay for a real key. The content mirrors real issues the free engine
+  // has to work around with heuristics (a disambiguated "tilt up/down"
+  // pair, a corrected run-together word) that the AI handles natively.
+  function getDemoQuestions() {
+    return [
+      {
+        id: "demo0",
+        type: "define",
+        prompt: "What is a tracking shot?",
+        answer: "A shot where the camera physically moves through a scene, following a subject as they move rather than staying fixed.",
+        answerShort: "Tracking shot",
+        sourceSentence: "",
+      },
+      {
+        id: "demo1",
+        type: "cloze",
+        prompt: "Tilt up: tilting the camera upward can give a character a sense of ▁▁▁▁▁.",
+        answer: "dominance",
+        answerShort: "dominance",
+        sourceSentence: "Tilt up: tilting the camera upward can give a character a sense of dominance.",
+      },
+      {
+        id: "demo2",
+        type: "cloze",
+        prompt: "Tilt down: tilting the camera downward can give a character a sense of ▁▁▁▁▁.",
+        answer: "vulnerability",
+        answerShort: "vulnerability",
+        sourceSentence: "Tilt down: tilting the camera downward can give a character a sense of vulnerability.",
+      },
+      {
+        id: "demo3",
+        type: "define",
+        prompt: "What is videography?",
+        answer: "The process or art of making video films.",
+        answerShort: "Videography",
+        sourceSentence: "",
+      },
+      {
+        id: "demo4",
+        type: "cloze",
+        prompt: "A pull-out shot moves the camera ▁▁▁▁▁ from the subject, often to reveal the wider setting.",
+        answer: "away",
+        answerShort: "away",
+        sourceSentence: "A pull-out shot moves the camera away from the subject, often to reveal the wider setting.",
+      },
+    ];
+  }
+
+  global.DoxaAI = { getApiKey, setApiKey, hasApiKey, isEnabled, setEnabled, generateWithAI, getDemoQuestions };
 })(window);
