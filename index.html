@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-<title>Doxa — Study From Your Notes</title>
-<meta name="description" content="Paste your notes and instantly get flashcards and quizzes. Works offline, installs to your home screen." />
+<title>Doxa — Build Your Own Flashcards</title>
+<meta name="description" content="Write your own flashcards and quiz yourself. Works offline, installs to your home screen." />
 <meta name="theme-color" content="#f9f4e8" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -64,21 +64,8 @@
       <label class="field-label" for="deck-title">Deck name <span class="optional">(optional)</span></label>
       <input id="deck-title" type="text" placeholder="e.g. Bio Chapter 4" maxlength="60" />
 
-      <button id="upload-btn" class="btn btn-primary btn-full">Upload PowerPoint, Google Docs/Slides, or PDF</button>
-      <div class="hint">AI reads it and builds your flashcards automatically.</div>
-      <input id="upload-file" type="file" accept=".docx,.pptx,.pdf,.txt" class="hidden" />
-
-      <div class="ai-toggle-row">
-        <div class="ai-toggle-text">
-          <div class="ai-toggle-title">✨ Enhance with AI</div>
-          <div class="ai-toggle-sub" id="ai-toggle-sub">Free engine (default) — no key needed</div>
-        </div>
-        <div id="ai-toggle-switch" class="switch" role="switch" aria-checked="false" tabindex="0"></div>
-      </div>
-      <button id="ai-settings-link" class="btn-text">Manage AI key</button>
-
-      <button id="create-empty-btn" class="btn btn-secondary btn-full">Create flashcards by hand</button>
-      <div class="hint">Start an empty deck and add your own front → back cards.</div>
+      <button id="create-empty-btn" class="btn btn-primary btn-full">Create flashcards by hand</button>
+      <div class="hint">Start a deck and add your own front → back cards.</div>
     </div>
 
     <div id="saved-decks-wrap" class="hidden">
@@ -92,39 +79,6 @@
       <input id="import-file" type="file" accept="application/json" class="hidden" />
     </div>
   </main>
-</section>
-
-<!-- AI SETTINGS -->
-<section id="screen-ai-settings" class="screen">
-  <header class="topbar">
-    <button class="icon-btn back-btn" data-target="screen-home" aria-label="Back">←</button>
-    <div class="wordmark">AI settings</div>
-  </header>
-  <main class="home-main">
-    <div class="card-panel">
-      <p class="hint">
-        Paste your own Anthropic API key to turn on AI-enhanced flashcards. The key is stored only in this browser (never sent to us) and is used to call Anthropic directly when you generate a deck. Using it will incur usage charges on your own Anthropic account, and generation needs an internet connection.
-      </p>
-      <label class="field-label" for="ai-key-input">Anthropic API key</label>
-      <input id="ai-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
-      <button id="ai-key-save-btn" class="btn btn-primary btn-full">Save key</button>
-      <button id="ai-key-clear-btn" class="btn-text hidden">Remove saved key</button>
-    </div>
-
-    <div class="card-panel">
-      <div class="field-label">Not sure yet?</div>
-      <p class="hint">See a sample of what AI-enhanced cards look like — no key, no internet call, no cost.</p>
-      <button id="ai-demo-btn" class="btn btn-secondary btn-full">Try a free demo deck</button>
-    </div>
-  </main>
-</section>
-
-<!-- GENERATING (brief loading state) -->
-<section id="screen-loading" class="screen">
-  <div class="loading-wrap">
-    <div class="spinner"></div>
-    <p>Building your quiz…</p>
-  </div>
 </section>
 
 <!-- DECK SUMMARY -->
@@ -240,11 +194,7 @@
   </main>
 </section>
 
-<script src="lib/jszip.min.js"></script>
-<script src="lib/pdf.min.js"></script>
-<script src="docimport.js"></script>
 <script src="quizgen.js"></script>
-<script src="ai.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
