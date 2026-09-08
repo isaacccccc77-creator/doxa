@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
 <title>Doxa — Build Your Own Flashcards</title>
 <meta name="description" content="Write your own flashcards and quiz yourself. Works offline, installs to your home screen." />
-<meta name="theme-color" content="#f9f4e8" />
+<meta name="theme-color" content="#faf3e6" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,23 +19,60 @@
 <canvas id="confetti-canvas"></canvas>
 <div id="toast" class="toast" aria-live="polite"></div>
 
-<!-- HOME -->
-<section id="screen-home" class="screen active">
+<!-- LOGIN / PROFILE SETUP -->
+<section id="screen-login" class="screen">
   <header class="topbar">
+    <button class="icon-btn back-btn hidden" id="login-back-btn" data-target="screen-home" aria-label="Back">←</button>
     <div class="wordmark">Doxa</div>
+  </header>
+  <main class="login-main">
+    <div class="login-hero">
+      <div class="login-seal">D</div>
+      <h1 class="login-title" id="login-title">Welcome to Doxa</h1>
+      <p class="login-sub">Set up your profile to get started.</p>
+    </div>
+
+    <div class="card-panel">
+      <label class="field-label" for="profile-name-input">Your name</label>
+      <input id="profile-name-input" type="text" placeholder="e.g. Anne" maxlength="24" />
+
+      <label class="field-label">Choose an avatar</label>
+      <div id="avatar-preview-wrap" class="avatar-preview-wrap hidden">
+        <img id="avatar-preview-img" class="avatar-preview-img" alt="Your photo" />
+        <button id="avatar-remove-photo-btn" class="btn-text">Remove photo</button>
+      </div>
+      <div id="avatar-grid" class="avatar-grid"></div>
+      <button id="avatar-upload-btn" class="btn-text">Or upload your own photo</button>
+      <input id="avatar-upload-input" type="file" accept="image/*" class="hidden" />
+
+      <button id="profile-save-btn" class="btn btn-primary btn-full btn-arrow-cta">
+        <span>Let's go</span><span class="btn-arrow">→</span>
+      </button>
+    </div>
+  </main>
+</section>
+
+<!-- HOME -->
+<section id="screen-home" class="screen">
+  <header class="topbar home-topbar">
+    <button id="profile-avatar-btn" class="avatar-bubble" aria-label="Edit profile"></button>
+    <div class="greeting-block">
+      <div class="greeting-text" id="greeting-text">Hello!</div>
+      <div class="greeting-sub" id="greeting-sub">What shall we do today?</div>
+    </div>
   </header>
 
   <main class="home-main">
-    <div class="ledger">
-      <div class="ledger-item">
+    <div class="ledger bento-grid">
+      <div class="ledger-item bento-tile bento-tile-gold">
         <div class="ledger-label">Streak</div>
         <div class="ledger-value"><span id="streak-count">0</span><small>days</small></div>
       </div>
-      <div class="ledger-item">
+      <div class="ledger-item bento-tile bento-tile-teal">
         <div class="ledger-label">Level</div>
         <div class="ledger-value" id="level-num">1</div>
       </div>
-      <div class="ledger-item ledger-item-xp">
+      <div class="ledger-item ledger-item-xp bento-tile bento-tile-coral">
         <div class="ledger-label">To next level</div>
         <div class="ledger-value" id="xp-label">0<small>/ 100</small></div>
         <div class="xp-rule"><div id="xp-fill" class="xp-rule-fill"></div></div>
@@ -85,11 +122,24 @@
     <div class="summary-badge" id="summary-count">0</div>
     <p class="summary-sub" id="summary-sub">questions in this deck</p>
     <div id="due-callout" class="due-callout">0 due for review</div>
-    <div class="mode-choice">
-      <button id="start-smart-review" class="btn btn-primary btn-full">Smart Review</button>
-      <button id="start-flashcards" class="btn btn-secondary btn-full">Study all flashcards</button>
-      <button id="start-mcq" class="btn btn-secondary btn-full">Take quiz</button>
-      <button id="manage-cards-btn" class="btn btn-secondary btn-full">Manage cards</button>
+    <div class="mode-bento">
+      <button id="start-smart-review" class="btn bento-tile bento-tile-gold mode-tile mode-tile-wide">
+        <span class="mode-tile-icon">⚡</span>
+        <span class="mode-tile-label" id="smart-review-label">Smart Review</span>
+        <span class="btn-arrow">→</span>
+      </button>
+      <button id="start-flashcards" class="btn bento-tile bento-tile-teal mode-tile">
+        <span class="mode-tile-icon">🗂️</span>
+        <span class="mode-tile-label">Flashcards</span>
+      </button>
+      <button id="start-mcq" class="btn bento-tile bento-tile-coral mode-tile">
+        <span class="mode-tile-icon">✅</span>
+        <span class="mode-tile-label">Quiz</span>
+      </button>
+      <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile mode-tile-wide">
+        <span class="mode-tile-icon">✏️</span>
+        <span class="mode-tile-label" id="manage-cards-label">Manage cards</span>
+      </button>
     </div>
     <button id="summary-delete" class="btn btn-text">Delete this deck</button>
   </main>

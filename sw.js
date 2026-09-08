@@ -1,4 +1,4 @@
-const CACHE = "doxa-v13";
+const CACHE = "doxa-v14";
 const SHELL = [
   "./",
   "./index.html",

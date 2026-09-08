@@ -21,17 +21,26 @@
 }
 
 :root {
-  --paper: #f9f4e8;
-  --panel: #f9f4e8;
-  --panel-2: #f1e8d2;
-  --hair: #ddcca0;
+  --paper: #faf3e6;
+  --panel: #faf3e6;
+  --panel-2: #f2e5c8;
+  --hair: #e0cb9a;
   --ink: #241c10;
   --taupe: #7d7057;
-  --gold: #a3781f;
-  --gold-bright: #c99a3a;
-  --gold-dim: #8a6a3f;
-  --sage: #4c6b47;
-  --oxblood: #8f4235;
+  --gold: #b8831b;
+  --gold-bright: #e6a83c;
+  --gold-dim: #8f6a26;
+  --sage: #3f8459;
+  --sage-bright: #5aab78;
+  --oxblood: #c14a37;
+  --oxblood-bright: #e0654e;
+  --teal: #1f8f92;
+  --teal-bright: #38c2c4;
+  --coral: #e2622f;
+  --coral-bright: #ff8a54;
+  --violet: #7a5ed6;
+  --violet-bright: #9c85ea;
+  --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
   --radius: 14px;
   --serif: 'Fraunces', Georgia, 'Iowan Old Style', serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -54,7 +63,9 @@ html, body {
 
 body {
   background:
-    radial-gradient(1000px 520px at 18% -14%, rgba(163, 120, 31, 0.09), transparent 58%),
+    radial-gradient(900px 480px at 12% -10%, rgba(230, 168, 60, 0.16), transparent 58%),
+    radial-gradient(700px 420px at 100% 8%, rgba(56, 194, 196, 0.10), transparent 55%),
+    radial-gradient(600px 500px at -5% 90%, rgba(226, 98, 47, 0.08), transparent 55%),
     var(--paper);
   min-height: 100vh;
   position: relative;
@@ -82,7 +93,14 @@ button { font-family: inherit; }
   position: relative;
   z-index: 2;
 }
-.screen.active { display: flex; }
+.screen.active { display: flex; animation: screen-in 0.32s var(--bounce); }
+@media (prefers-reduced-motion: reduce) {
+  .screen.active { animation: none; }
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 .topbar {
   display: flex;
@@ -129,50 +147,68 @@ button { font-family: inherit; }
   gap: 22px;
 }
 
-/* ---------------- Ledger: streak / level / xp ---------------- */
-.ledger {
-  display: flex;
-  gap: 22px;
-  padding: 16px 2px;
-  border-top: 1px solid var(--hair);
-  border-bottom: 1px solid var(--hair);
+/* ---------------- Bento boxes: shared grid + colored tiles ---------------- */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
-.ledger-item { flex: 1; min-width: 0; }
-.ledger-item-xp { flex: 1.4; }
+.bento-tile {
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(36, 28, 16, 0.14);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.bento-tile:active { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) {
+  .bento-tile:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(36, 28, 16, 0.22); }
+}
+.bento-tile-gold { background: linear-gradient(135deg, var(--gold-bright), var(--gold)); }
+.bento-tile-teal { background: linear-gradient(135deg, var(--teal-bright), var(--teal)); }
+.bento-tile-coral { background: linear-gradient(135deg, var(--coral-bright), var(--coral)); }
+.bento-tile-sage { background: linear-gradient(135deg, var(--sage-bright), var(--sage)); }
+.bento-tile-violet { background: linear-gradient(135deg, var(--violet-bright), var(--violet)); }
+
+/* ---------------- Ledger: streak / level / xp ---------------- */
+.ledger-item { min-width: 0; }
+.ledger-item-xp { grid-column: 1 / -1; }
 .ledger-label {
   font-size: 0.62rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--taupe);
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 6px;
 }
 .ledger-value {
   font-family: var(--serif);
   font-weight: 560;
   font-size: 1.7rem;
-  color: var(--gold);
+  color: #fff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .ledger-value small {
   font-size: 0.8rem;
-  color: var(--taupe);
+  color: rgba(255, 255, 255, 0.8);
   font-family: var(--sans);
   font-weight: 500;
   margin-left: 3px;
 }
 .xp-rule {
-  height: 1px;
-  background: var(--hair);
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
   position: relative;
   margin-top: 10px;
 }
 .xp-rule-fill {
   position: absolute;
-  left: 0; top: -1px;
-  height: 3px;
+  left: 0; top: 0;
+  height: 4px;
+  border-radius: 999px;
   width: 0%;
-  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  background: #fff;
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
 
@@ -247,6 +283,7 @@ button { font-family: inherit; }
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-shadow: 0 10px 26px rgba(36, 28, 16, 0.07);
 }
 .field-label {
   font-size: 0.7rem;
@@ -284,14 +321,15 @@ textarea.textarea-small { min-height: 70px; }
   font-family: var(--sans);
   cursor: pointer;
   letter-spacing: 0.01em;
-  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform 0.22s var(--bounce), opacity 0.15s ease, box-shadow 0.22s ease, filter 0.15s ease;
 }
-.btn:active { opacity: 0.85; transform: scale(0.97); }
+.btn:active { opacity: 0.85; transform: scale(0.92); transition-duration: 0.08s; }
 .btn-full { width: 100%; }
 .btn-primary {
   background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   color: #201607;
   font-weight: 700;
+  box-shadow: 0 8px 20px rgba(184, 131, 27, 0.28);
 }
 .btn-secondary {
   background: transparent;
@@ -310,31 +348,66 @@ textarea.textarea-small { min-height: 70px; }
 .btn-text:active { opacity: 0.6; }
 .btn-small { padding: 9px 16px; font-size: 0.8rem; border-radius: 8px; }
 
+/* Animated arrow riding inside a primary CTA — nudges right on a loop to
+   draw the eye toward the action, and dashes forward on press. */
+.btn-arrow {
+  display: inline-block;
+  margin-left: 8px;
+  animation: arrow-nudge 1.3s ease-in-out infinite;
+}
+.btn:active .btn-arrow { animation: none; transform: translateX(6px); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-arrow { animation: none; }
+}
+@keyframes arrow-nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
 /* Desktop-only hover polish — gated on real hover+pointer support so a
    tap on touch devices never leaves a "stuck" hover state behind. */
 @media (hover: hover) and (pointer: fine) {
-  .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 4px 14px rgba(163, 120, 31, 0.28); }
-  .btn-secondary:hover { border-color: var(--gold-dim); color: var(--gold-dim); }
+  .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 10px 24px rgba(184, 131, 27, 0.4); transform: translateY(-2px); }
+  .btn-secondary:hover { border-color: var(--gold-dim); color: var(--gold-dim); transform: translateY(-2px); }
   .btn-text:hover { color: var(--ink); }
-  .icon-btn:hover { border-color: var(--gold-dim); }
-  .deck-card:hover { border-color: var(--gold-dim); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(36, 28, 16, 0.06); }
+  .icon-btn:hover { border-color: var(--gold-dim); transform: translateY(-1px); }
+  .deck-card:hover { border-color: var(--gold-dim); transform: translateY(-4px); box-shadow: 0 16px 32px rgba(36, 28, 16, 0.16); }
 }
 
 .finish-deck-btn {
   background: linear-gradient(180deg, #5c8154, var(--sage));
   color: #fff;
   font-weight: 700;
-  animation: finish-pulse 2.2s ease-in-out infinite;
+  animation: finish-pulse 1.5s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .finish-deck-btn { animation: none; }
 }
 @keyframes finish-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 107, 71, 0.35); }
-  50% { box-shadow: 0 0 0 9px rgba(76, 107, 71, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 107, 71, 0.45); transform: scale(1); }
+  50% { box-shadow: 0 0 0 14px rgba(76, 107, 71, 0); transform: scale(1.025); }
 }
 
 .mode-choice { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+
+.mode-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+.mode-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 1rem;
+}
+.mode-tile-wide { grid-column: 1 / -1; }
+.mode-tile-icon { font-size: 1.3rem; line-height: 1; }
+.mode-tile-label { flex: 1; }
+.mode-tile .btn-arrow { margin-left: 0; }
 
 .section-title {
   font-size: 0.68rem;
@@ -352,9 +425,10 @@ textarea.textarea-small { min-height: 70px; }
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   padding: 16px 18px;
+  box-shadow: 0 6px 16px rgba(36, 28, 16, 0.06);
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.deck-card:active { transform: scale(0.985); }
+.deck-card:active { transform: scale(0.96); }
 .deck-card.card-enter { animation: card-enter 0.28s ease; }
 @media (prefers-reduced-motion: reduce) {
   .deck-card.card-enter { animation: none; }
@@ -674,6 +748,109 @@ textarea.textarea-small { min-height: 70px; }
 .missed-q { font-family: var(--serif); color: var(--ink); margin-bottom: 6px; white-space: pre-line; }
 .missed-a { color: var(--taupe); font-size: 0.82rem; }
 .missed-a b { color: var(--sage); font-weight: 600; }
+
+/* ---------------- Login / profile setup ---------------- */
+.login-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 20px 30px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  gap: 26px;
+}
+.login-hero { text-align: center; padding: 10px 0 4px; }
+.login-seal {
+  width: 64px; height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: #201607;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(184, 131, 27, 0.35);
+}
+.login-title { font-family: var(--serif); font-style: italic; font-weight: 560; font-size: 1.6rem; margin: 0 0 6px; }
+.login-sub { color: var(--taupe); font-size: 0.9rem; margin: 0; }
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.avatar-option {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  cursor: pointer;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(36, 28, 16, 0.12);
+  transition: transform 0.18s var(--bounce), border-color 0.15s ease;
+}
+.avatar-option:active { transform: scale(0.88); }
+.avatar-option.selected { border-color: var(--ink); transform: scale(1.1); }
+@media (hover: hover) and (pointer: fine) {
+  .avatar-option:hover { transform: scale(1.08); }
+}
+.avatar-bg-gold { background: linear-gradient(135deg, var(--gold-bright), var(--gold)); }
+.avatar-bg-teal { background: linear-gradient(135deg, var(--teal-bright), var(--teal)); }
+.avatar-bg-coral { background: linear-gradient(135deg, var(--coral-bright), var(--coral)); }
+.avatar-bg-sage { background: linear-gradient(135deg, var(--sage-bright), var(--sage)); }
+.avatar-bg-violet { background: linear-gradient(135deg, var(--violet-bright), var(--violet)); }
+
+.avatar-preview-wrap { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; }
+.avatar-preview-img {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(36, 28, 16, 0.16);
+}
+
+.btn-arrow-cta { display: flex; align-items: center; justify-content: center; }
+
+/* Personalized home greeting */
+.home-topbar { align-items: center; gap: 14px; padding: 22px 20px 6px; }
+.avatar-bubble {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: none;
+  color: #fff;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(184, 131, 27, 0.3);
+  transition: transform 0.18s var(--bounce);
+}
+.avatar-bubble:active { transform: scale(0.88); }
+@media (hover: hover) and (pointer: fine) {
+  .avatar-bubble:hover { transform: scale(1.08); }
+}
+.avatar-bubble img { width: 100%; height: 100%; object-fit: cover; }
+.greeting-block { flex: 1; min-width: 0; }
+.greeting-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 560;
+  font-size: 1.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.greeting-sub { font-size: 0.8rem; color: var(--taupe); margin-top: 2px; }
 
 @media (min-width: 640px) {
   .home-main, .center-main, .flash-main, .mcq-main { padding: 0 28px 36px; }

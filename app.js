@@ -21,6 +21,27 @@
     { id: "quiz_ace", icon: "A", label: "Perfect Quiz", check: (p) => !!(p.flags && p.flags.perfectQuiz) },
   ];
 
+  const AVATAR_OPTIONS = [
+    { emoji: "🦊", bg: "gold" },
+    { emoji: "🦉", bg: "teal" },
+    { emoji: "🐢", bg: "sage" },
+    { emoji: "🦁", bg: "coral" },
+    { emoji: "🐼", bg: "violet" },
+    { emoji: "🐝", bg: "gold" },
+    { emoji: "🐬", bg: "teal" },
+    { emoji: "🦋", bg: "violet" },
+    { emoji: "🐙", bg: "coral" },
+    { emoji: "🐨", bg: "sage" },
+  ];
+
+  const GREETINGS = [
+    { main: (n) => `Hello, ${n}!`, sub: "What shall we do today?" },
+    { main: (n, t) => `Good ${t}, ${n}!`, sub: "Let's make today count." },
+    { main: (n) => `Hey ${n}!`, sub: "Ready to learn something new?" },
+    { main: (n) => `Welcome back, ${n}!`, sub: "Your flashcards are waiting." },
+    { main: (n) => `Great to see you, ${n}!`, sub: "Let's get studying." },
+  ];
+
   // ---------------------------------------------------------------
   // Small helpers
   // ---------------------------------------------------------------
@@ -104,6 +125,10 @@
     p.badges = p.badges || {};
     p.reminder = p.reminder || { enabled: false, lastNotifiedDate: null };
     p.flags = p.flags || {};
+    p.name = p.name || "";
+    p.avatarEmoji = p.avatarEmoji || AVATAR_OPTIONS[0].emoji;
+    p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
+    p.avatarPhoto = p.avatarPhoto || "";
     return p;
   }
   function saveProfile(p) {
@@ -111,6 +136,141 @@
     catch (e) { toast("Couldn't save — your browser's storage may be full or private."); }
   }
   let profile = loadProfile();
+
+  // ---------------------------------------------------------------
+  // Login / profile setup: name + avatar, shown once before the first
+  // visit to home, reopenable later by tapping the avatar bubble. No
+  // real accounts — everything stays local, this is just personalization.
+  // ---------------------------------------------------------------
+  const AVATAR_BG_CLASSES = AVATAR_OPTIONS.map((o) => "avatar-bg-" + o.bg)
+    .filter((c, i, arr) => arr.indexOf(c) === i);
+  let draftAvatarEmoji = AVATAR_OPTIONS[0].emoji;
+  let draftAvatarBg = AVATAR_OPTIONS[0].bg;
+  let draftAvatarPhoto = "";
+
+  function setBubbleAvatar(el, emoji, bg, photo) {
+    AVATAR_BG_CLASSES.forEach((c) => el.classList.remove(c));
+    if (photo) {
+      el.innerHTML = `<img src="${photo}" alt="" />`;
+    } else {
+      el.classList.add("avatar-bg-" + bg);
+      el.textContent = emoji;
+    }
+  }
+
+  function renderAvatarGrid() {
+    const grid = $("#avatar-grid");
+    grid.innerHTML = "";
+    AVATAR_OPTIONS.forEach((opt) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "avatar-option avatar-bg-" + opt.bg;
+      const selected = !draftAvatarPhoto && opt.emoji === draftAvatarEmoji && opt.bg === draftAvatarBg;
+      if (selected) btn.classList.add("selected");
+      btn.textContent = opt.emoji;
+      btn.setAttribute("aria-label", "Choose avatar " + opt.emoji);
+      btn.addEventListener("click", () => {
+        draftAvatarEmoji = opt.emoji;
+        draftAvatarBg = opt.bg;
+        draftAvatarPhoto = "";
+        renderAvatarGrid();
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  function showAvatarPhotoPreview(photo) {
+    if (photo) {
+      $("#avatar-preview-img").src = photo;
+      $("#avatar-preview-wrap").classList.remove("hidden");
+      $("#avatar-grid").classList.add("hidden");
+    } else {
+      $("#avatar-preview-wrap").classList.add("hidden");
+      $("#avatar-grid").classList.remove("hidden");
+    }
+  }
+
+  function openProfileScreen(isOnboarding) {
+    draftAvatarEmoji = profile.avatarEmoji;
+    draftAvatarBg = profile.avatarBg;
+    draftAvatarPhoto = profile.avatarPhoto;
+    $("#profile-name-input").value = profile.name || "";
+    $("#login-title").textContent = isOnboarding ? "Welcome to Doxa" : "Edit your profile";
+    $("#login-back-btn").classList.toggle("hidden", isOnboarding);
+    showAvatarPhotoPreview(draftAvatarPhoto);
+    renderAvatarGrid();
+    showScreen("screen-login");
+  }
+
+  $("#profile-avatar-btn").addEventListener("click", () => openProfileScreen(false));
+
+  $("#avatar-upload-btn").addEventListener("click", () => $("#avatar-upload-input").click());
+
+  $("#avatar-upload-input").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("Please choose an image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Downscale to a small square so a full-resolution photo doesn't
+        // blow up localStorage — this only ever needs to fill a tiny circle.
+        const size = 160;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        draftAvatarPhoto = canvas.toDataURL("image/jpeg", 0.85);
+        showAvatarPhotoPreview(draftAvatarPhoto);
+      };
+      img.onerror = () => toast("Couldn't read that image.");
+      img.src = reader.result;
+    };
+    reader.onerror = () => toast("Couldn't read that image.");
+    reader.readAsDataURL(file);
+  });
+
+  $("#avatar-remove-photo-btn").addEventListener("click", () => {
+    draftAvatarPhoto = "";
+    showAvatarPhotoPreview("");
+    renderAvatarGrid();
+  });
+
+  $("#profile-save-btn").addEventListener("click", () => {
+    const name = $("#profile-name-input").value.trim();
+    if (!name) {
+      toast("Tell us your name first.");
+      return;
+    }
+    profile.name = name.slice(0, 24);
+    profile.avatarPhoto = draftAvatarPhoto;
+    if (!draftAvatarPhoto) {
+      profile.avatarEmoji = draftAvatarEmoji;
+      profile.avatarBg = draftAvatarBg;
+    }
+    saveProfile(profile);
+    renderHome();
+    showScreen("screen-home");
+  });
+
+  function renderProfileHeader() {
+    setBubbleAvatar($("#profile-avatar-btn"), profile.avatarEmoji, profile.avatarBg, profile.avatarPhoto);
+    const name = profile.name || "there";
+    const hour = new Date().getHours();
+    const timeWord = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+    const dayIndex = Math.floor(Date.now() / 86400000);
+    const g = GREETINGS[(dayIndex + name.length) % GREETINGS.length];
+    $("#greeting-text").textContent = g.main(name, timeWord);
+    $("#greeting-sub").textContent = g.sub;
+  }
 
   function levelInfo(xp) {
     let level = 1, needed = 100, total = 0;
@@ -285,6 +445,7 @@
   // HOME
   // ---------------------------------------------------------------
   function renderHome() {
+    renderProfileHeader();
     renderHeaderChips();
     renderBadgesRow();
     renderReminderUI();
@@ -335,22 +496,22 @@
       $("#summary-sub").textContent = "This deck is empty";
       $("#due-callout").classList.add("hidden");
       studyButtons.forEach((b) => b.classList.add("hidden"));
-      $("#manage-cards-btn").textContent = "Add your first card";
+      $("#manage-cards-label").textContent = "Add your first card";
     } else {
       $("#summary-sub").textContent = "questions in this deck";
       $("#due-callout").classList.remove("hidden");
       studyButtons.forEach((b) => b.classList.remove("hidden"));
-      $("#manage-cards-btn").textContent = "Manage cards";
+      $("#manage-cards-label").textContent = "Manage cards";
       const due = dueCount(deck);
       const callout = $("#due-callout");
       if (due > 0) {
         callout.textContent = `${due} card${due === 1 ? "" : "s"} due for review`;
         callout.className = "due-callout has-due";
-        $("#start-smart-review").textContent = `Smart Review (${due})`;
+        $("#smart-review-label").textContent = `Smart Review (${due})`;
       } else {
         callout.textContent = "All caught up";
         callout.className = "due-callout all-caught";
-        $("#start-smart-review").textContent = "Review all";
+        $("#smart-review-label").textContent = "Review all";
       }
     }
     showScreen("screen-summary");
@@ -974,5 +1135,10 @@
   // Init
   // ---------------------------------------------------------------
   resizeConfettiCanvas();
-  renderHome();
+  if (!profile.name) {
+    openProfileScreen(true);
+  } else {
+    renderHome();
+    showScreen("screen-home");
+  }
 })();
