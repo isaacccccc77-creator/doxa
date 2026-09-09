@@ -175,6 +175,11 @@
         <span class="mode-tile-icon">📝</span>
         <span class="mode-tile-label">Essay</span>
       </button>
+      <button id="start-sticking" class="btn bento-tile bento-tile-oxblood mode-tile mode-tile-wide hidden">
+        <span class="mode-tile-icon">🩹</span>
+        <span class="mode-tile-label" id="sticking-label">Sticking points</span>
+        <span class="btn-arrow">→</span>
+      </button>
       <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile mode-tile-wide">
         <span class="mode-tile-icon">✏️</span>
         <span class="mode-tile-label" id="manage-cards-label">Manage cards</span>
@@ -194,9 +199,25 @@
     <div class="card-panel">
       <label class="field-label" for="card-front">Front <span class="optional">(question)</span></label>
       <textarea id="card-front" class="textarea-small" placeholder="e.g. What is the powerhouse of the cell?"></textarea>
+      <div class="img-field" id="card-front-img-field">
+        <button type="button" id="card-front-img-btn" class="btn-text img-add-btn">＋ Add image to the front</button>
+        <div id="card-front-img-preview" class="img-preview hidden">
+          <img id="card-front-img-thumb" class="img-thumb" alt="" />
+          <button type="button" id="card-front-img-remove" class="btn-text">Remove image</button>
+        </div>
+        <input id="card-front-img-input" type="file" accept="image/*" class="hidden" />
+      </div>
 
       <label class="field-label" for="card-back">Back <span class="optional">(answer — short or essay-length)</span></label>
       <textarea id="card-back" class="textarea-medium" placeholder="e.g. The mitochondrion&#10;&#10;Or write a full model answer here — Essay mode will show it back to you to compare against."></textarea>
+      <div class="img-field" id="card-back-img-field">
+        <button type="button" id="card-back-img-btn" class="btn-text img-add-btn">＋ Add image to the answer</button>
+        <div id="card-back-img-preview" class="img-preview hidden">
+          <img id="card-back-img-thumb" class="img-thumb" alt="" />
+          <button type="button" id="card-back-img-remove" class="btn-text">Remove image</button>
+        </div>
+        <input id="card-back-img-input" type="file" accept="image/*" class="hidden" />
+      </div>
 
       <button id="card-save-btn" class="btn btn-primary btn-full">Add card</button>
       <button id="card-cancel-btn" class="btn-text hidden">Cancel edit</button>
@@ -227,15 +248,18 @@
       <div id="flash-card" class="flash-card">
         <div class="flash-face flash-front">
           <div class="flash-tag" id="flash-tag">CLOZE</div>
+          <img id="flash-front-img" class="card-img hidden" alt="Card image" />
           <div class="flash-text" id="flash-front-text"></div>
           <div class="flash-hint">Tap to reveal</div>
         </div>
         <div class="flash-face flash-back">
+          <img id="flash-back-img" class="card-img hidden" alt="Answer image" />
           <div class="flash-answer" id="flash-answer-text"></div>
           <div class="flash-context" id="flash-context-text"></div>
         </div>
       </div>
     </div>
+    <button id="flash-zoom-btn" class="btn-text flash-zoom-btn hidden">⤢ Enlarge image</button>
     <div class="swipe-hints">
       <span>Still learning</span>
       <span>Got it</span>
@@ -256,6 +280,7 @@
   </header>
   <main class="essay-main">
     <div class="essay-question" id="essay-question"></div>
+    <img id="essay-question-img" class="card-img essay-img hidden" alt="Question image" />
 
     <div id="essay-write-stage">
       <textarea id="essay-input" class="essay-input" placeholder="Write your full answer here — take as much space as you need."></textarea>
@@ -268,6 +293,7 @@
     <div id="essay-review-stage" class="hidden">
       <div class="essay-block essay-block-model">
         <div class="essay-block-label">Model answer</div>
+        <img id="essay-model-img" class="card-img essay-img hidden" alt="Model answer image" />
         <div class="essay-block-text" id="essay-model-text"></div>
       </div>
       <div class="essay-block">
@@ -300,6 +326,12 @@
     </div>
   </main>
 </section>
+
+<!-- FULL-SCREEN IMAGE VIEWER -->
+<div id="lightbox" class="lightbox hidden">
+  <img id="lightbox-img" class="lightbox-img" alt="" />
+  <button id="lightbox-close" class="lightbox-close" aria-label="Close image">✕</button>
+</div>
 
 <!-- BADGE DETAIL SHEET -->
 <div id="badge-sheet-wrap" class="sheet-wrap hidden">

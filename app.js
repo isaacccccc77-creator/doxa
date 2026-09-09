@@ -660,6 +660,161 @@
   }
 
   // ---------------------------------------------------------------
+  // IMAGES: anatomy, histology, radiographs. Pictures are far too big for
+  // localStorage (a few would fill the whole 5MB budget), so they live in
+  // IndexedDB, which is still entirely on-device and works offline — and
+  // works from a file:// page too, so the single-file build keeps them.
+  // Cards store only an id; the bytes are fetched when a card is shown.
+  // ---------------------------------------------------------------
+  const IMAGE_DB = "doxa-media";
+  const IMAGE_STORE = "images";
+  const MAX_IMAGE_EDGE = 1400;   // enough detail to read a radiograph
+  const IMAGE_QUALITY = 0.85;
+
+  const imageStore = (function () {
+    let dbPromise = null;
+    let supported = typeof indexedDB !== "undefined";
+
+    function open() {
+      if (!supported) return Promise.reject(new Error("no-indexeddb"));
+      if (dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject) => {
+        let req;
+        try { req = indexedDB.open(IMAGE_DB, 1); }
+        catch (e) { supported = false; reject(e); return; }
+        req.onupgradeneeded = () => {
+          if (!req.result.objectStoreNames.contains(IMAGE_STORE)) {
+            req.result.createObjectStore(IMAGE_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => { supported = false; reject(req.error); };
+      });
+      return dbPromise;
+    }
+
+    function tx(mode, fn) {
+      return open().then((db) => new Promise((resolve, reject) => {
+        const t = db.transaction(IMAGE_STORE, mode);
+        const req = fn(t.objectStore(IMAGE_STORE));
+        t.oncomplete = () => resolve(req ? req.result : undefined);
+        t.onerror = () => reject(t.error);
+        t.onabort = () => reject(t.error);
+      }));
+    }
+
+    return {
+      // Probed once at startup so the UI can hide what it can't deliver
+      // rather than offering a button that silently does nothing.
+      probe() {
+        return open().then(() => true).catch(() => false);
+      },
+      put(id, blob) { return tx("readwrite", (st) => st.put(blob, id)); },
+      get(id) { return tx("readonly", (st) => st.get(id)); },
+      del(id) { return tx("readwrite", (st) => st.delete(id)); },
+    };
+  })();
+
+  let imagesSupported = false;
+  const objectUrlCache = new Map();
+
+  function imageUrl(id) {
+    if (!id) return Promise.resolve("");
+    if (objectUrlCache.has(id)) return Promise.resolve(objectUrlCache.get(id));
+    return imageStore.get(id).then((blob) => {
+      if (!blob) return "";
+      const url = URL.createObjectURL(blob);
+      objectUrlCache.set(id, url);
+      return url;
+    }).catch(() => "");
+  }
+
+  function forgetImageUrl(id) {
+    const url = objectUrlCache.get(id);
+    if (url) { try { URL.revokeObjectURL(url); } catch (e) {} objectUrlCache.delete(id); }
+  }
+
+  function deleteImage(id) {
+    if (!id) return;
+    forgetImageUrl(id);
+    imageStore.del(id).catch(() => {});
+  }
+
+  // Show (or hide) an <img> for a card image, without blocking the render.
+  function paintCardImage(imgEl, id) {
+    if (!id) { imgEl.classList.add("hidden"); imgEl.removeAttribute("src"); return; }
+    imgEl.dataset.imageId = id;
+    imageUrl(id).then((url) => {
+      // A fast tapper can move on before the blob resolves; only paint if
+      // this element is still meant to be showing this image.
+      if (imgEl.dataset.imageId !== id) return;
+      if (!url) { imgEl.classList.add("hidden"); return; }
+      imgEl.src = url;
+      imgEl.classList.remove("hidden");
+    });
+  }
+
+  // Shrink to something sensible before storing. A phone photo is 4MB of
+  // JPEG the screen can't show anyway.
+  function prepareImageFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) { reject(new Error("not-an-image")); return; }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read-failed"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("decode-failed"));
+        img.onload = () => {
+          const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            (blob) => blob ? resolve(blob) : reject(new Error("encode-failed")),
+            "image/jpeg",
+            IMAGE_QUALITY
+          );
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function storeImageFile(file) {
+    return prepareImageFile(file).then((blob) => {
+      const id = "img" + Date.now() + Math.random().toString(36).slice(2, 8);
+      return imageStore.put(id, blob).then(() => id);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Full-screen image viewer — a thumbnail is no use for a radiograph.
+  // ---------------------------------------------------------------
+  function openLightbox(id) {
+    imageUrl(id).then((url) => {
+      if (!url) return;
+      $("#lightbox-img").src = url;
+      $("#lightbox").classList.remove("hidden");
+    });
+  }
+  function closeLightbox() {
+    $("#lightbox").classList.add("hidden");
+    $("#lightbox-img").removeAttribute("src");
+  }
+
+  // Any card image can be tapped to fill the screen.
+  function makeZoomable(imgEl) {
+    imgEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (imgEl.dataset.imageId) openLightbox(imgEl.dataset.imageId);
+    });
+  }
+
+  // ---------------------------------------------------------------
   // Storage: decks + spaced-repetition mastery
   // ---------------------------------------------------------------
   function migrateDeckMastery(deck) {
@@ -671,6 +826,8 @@
         deck.mastery[qid] = m === "known"
           ? { state: "known", reps: 1, interval: 1, dueAt: Date.now() + 86400000 }
           : { state: "learning", reps: 0, interval: 0, dueAt: Date.now() };
+      } else if (m && typeof m.lapses !== "number") {
+        m.lapses = 0;
       }
     }
     return deck;
@@ -691,7 +848,13 @@
     if (idx >= 0) decks[idx] = deck; else decks.unshift(deck);
     saveDecks(decks);
   }
-  function deleteDeck(id) { saveDecks(loadDecks().filter((d) => d.id !== id)); }
+  function deleteDeck(id) {
+    const deck = loadDecks().find((d) => d.id === id);
+    if (deck) {
+      deck.questions.forEach((q) => { deleteImage(q.imgFront); deleteImage(q.imgBack); });
+    }
+    saveDecks(loadDecks().filter((d) => d.id !== id));
+  }
 
   function getMastery(deck, qid) {
     const m = deck.mastery[qid];
@@ -705,6 +868,20 @@
     return (m.dueAt || 0) <= Date.now();
   }
   function dueCount(deck) { return deck.questions.filter((q) => isDue(deck, q.id)).length; }
+
+  // A "sticking point" is a card you've missed repeatedly. Three misses is
+  // the point where the problem is usually the card, not your memory —
+  // it's too big, or it's really two cards wearing a trenchcoat.
+  const STICKING_THRESHOLD = 3;
+  function lapsesFor(deck, qid) {
+    const m = getMastery(deck, qid);
+    return (m && m.lapses) || 0;
+  }
+  function stickingPoints(deck) {
+    return deck.questions
+      .filter((q) => lapsesFor(deck, q.id) >= STICKING_THRESHOLD)
+      .sort((a, b) => lapsesFor(deck, b.id) - lapsesFor(deck, a.id));
+  }
   function deckMasteryPct(deck) {
     const total = deck.questions.length;
     if (!total) return 0;
@@ -715,15 +892,18 @@
   function gradeQuestion(deck, qid, correct) {
     const prev = getMastery(deck, qid) || { state: "new", reps: 0, interval: 0, dueAt: 0 };
     let rec;
+    const lapses = prev.lapses || 0;
     if (correct) {
       const reps = prev.reps + 1;
       let interval;
       if (reps === 1) interval = 1;
       else if (reps === 2) interval = 3;
       else interval = Math.max(1, Math.round((prev.interval || 3) * 2.2));
-      rec = { state: "known", reps, interval, dueAt: Date.now() + interval * 86400000 };
+      rec = { state: "known", reps, interval, lapses, dueAt: Date.now() + interval * 86400000 };
     } else {
-      rec = { state: "learning", reps: 0, interval: 0, dueAt: Date.now() };
+      // Every miss is counted for good. A card you keep failing is worth
+      // rewriting, and you can only notice that if the app remembers.
+      rec = { state: "learning", reps: 0, interval: 0, lapses: lapses + 1, dueAt: Date.now() };
     }
     deck.mastery[qid] = rec;
     return rec;
@@ -784,10 +964,15 @@
     $("#summary-count").textContent = deck.questions.length;
 
     const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-essay")];
+    const stuck = stickingPoints(deck);
+    const stickingBtn = $("#start-sticking");
+    stickingBtn.classList.toggle("hidden", stuck.length === 0);
+    $("#sticking-label").textContent = `Sticking points (${stuck.length})`;
     if (deck.questions.length === 0) {
       $("#summary-sub").textContent = "This deck is empty";
       $("#due-callout").classList.add("hidden");
       studyButtons.forEach((b) => b.classList.add("hidden"));
+      stickingBtn.classList.add("hidden");
       $("#manage-cards-label").textContent = "Add your first card";
     } else {
       $("#summary-sub").textContent = "questions in this deck";
@@ -872,12 +1057,16 @@
     for (const q of currentDeck.questions) {
       const front = q.prompt.length > 70 ? q.prompt.slice(0, 70) + "…" : q.prompt;
       const back = q.answer.length > 70 ? q.answer.slice(0, 70) + "…" : q.answer;
+      const lapses = lapsesFor(currentDeck, q.id);
       const el = document.createElement("div");
       el.className = "deck-card" + (q.id === lastAddedCardId ? " card-enter" : "");
       el.innerHTML = `
         <div class="deck-card-main">
-          <div class="deck-card-title">${escapeHtml(front)}</div>
-          <div class="deck-card-meta">${escapeHtml(back)}</div>
+          <div class="deck-card-title-row">
+            <div class="deck-card-title">${escapeHtml(front)}</div>
+            ${lapses >= STICKING_THRESHOLD ? `<span class="lapse-tag" title="Missed ${lapses} times">missed ${lapses}×</span>` : ""}
+          </div>
+          <div class="deck-card-meta">${(q.imgFront || q.imgBack) ? '<span class="img-chip">🖼 image</span> ' : ""}${escapeHtml(back)}</div>
         </div>
         <button class="icon-btn card-delete" aria-label="Delete card">✕</button>
       `;
@@ -891,24 +1080,91 @@
     lastAddedCardId = null;
   }
 
+  // Image drafts for the card being written. "original" is what the card
+  // already had, so an abandoned edit can bin the picture it uploaded and
+  // a saved edit can bin the one it replaced — neither leaves orphans.
+  const cardImg = { front: "", back: "", originalFront: "", originalBack: "" };
+
+  function renderCardImageField(side) {
+    const id = cardImg[side];
+    const preview = $("#card-" + side + "-img-preview");
+    const btn = $("#card-" + side + "-img-btn");
+    if (!id) {
+      preview.classList.add("hidden");
+      btn.classList.remove("hidden");
+      return;
+    }
+    btn.classList.add("hidden");
+    preview.classList.remove("hidden");
+    paintCardImage($("#card-" + side + "-img-thumb"), id);
+  }
+
+  function resetCardImageDrafts(q) {
+    cardImg.front = (q && q.imgFront) || "";
+    cardImg.back = (q && q.imgBack) || "";
+    cardImg.originalFront = cardImg.front;
+    cardImg.originalBack = cardImg.back;
+    renderCardImageField("front");
+    renderCardImageField("back");
+  }
+
+  ["front", "back"].forEach((side) => {
+    $("#card-" + side + "-img-btn").addEventListener("click", () => {
+      $("#card-" + side + "-img-input").click();
+    });
+    $("#card-" + side + "-img-remove").addEventListener("click", () => {
+      // Only bin it now if it was uploaded during this edit; an image the
+      // card already had is kept until the edit is actually saved.
+      const original = side === "front" ? cardImg.originalFront : cardImg.originalBack;
+      if (cardImg[side] && cardImg[side] !== original) deleteImage(cardImg[side]);
+      cardImg[side] = "";
+      renderCardImageField(side);
+    });
+    $("#card-" + side + "-img-input").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      const original = side === "front" ? cardImg.originalFront : cardImg.originalBack;
+      storeImageFile(file).then((id) => {
+        if (cardImg[side] && cardImg[side] !== original) deleteImage(cardImg[side]);
+        cardImg[side] = id;
+        renderCardImageField(side);
+      }).catch((err) => {
+        toast(err && err.message === "not-an-image"
+          ? "That file isn't an image."
+          : "Couldn't save that image — your device may be out of space.");
+      });
+    });
+  });
+
+  makeZoomable($("#card-front-img-thumb"));
+  makeZoomable($("#card-back-img-thumb"));
+
   function startEditCard(q) {
     editingCardId = q.id;
     $("#card-front").value = q.prompt;
     $("#card-back").value = q.answer;
+    resetCardImageDrafts(q);
     $("#card-save-btn").textContent = "Save changes";
     $("#card-cancel-btn").classList.remove("hidden");
     $("#card-front").focus();
   }
 
   function cancelEditCard() {
+    // Anything uploaded but never saved is dropped rather than left behind.
+    if (cardImg.front && cardImg.front !== cardImg.originalFront) deleteImage(cardImg.front);
+    if (cardImg.back && cardImg.back !== cardImg.originalBack) deleteImage(cardImg.back);
     editingCardId = null;
     $("#card-front").value = "";
     $("#card-back").value = "";
+    resetCardImageDrafts(null);
     $("#card-save-btn").textContent = "Add card";
     $("#card-cancel-btn").classList.add("hidden");
   }
 
   function deleteCard(id) {
+    const card = currentDeck.questions.find((q) => q.id === id);
+    if (card) { deleteImage(card.imgFront); deleteImage(card.imgBack); }
     currentDeck.questions = currentDeck.questions.filter((q) => q.id !== id);
     delete currentDeck.mastery[id];
     if (currentDeck.essays) delete currentDeck.essays[id];
@@ -928,13 +1184,19 @@
     if (!currentDeck) return;
     const front = $("#card-front").value.trim();
     const back = $("#card-back").value.trim();
-    if (!front || !back) {
-      toast("Add both a front and a back before saving.");
+    if ((!front && !cardImg.front) || (!back && !cardImg.back)) {
+      toast("Each side needs some text or an image.");
       return;
     }
     if (editingCardId) {
       const q = currentDeck.questions.find((qq) => qq.id === editingCardId);
-      if (q) { q.prompt = front; q.answer = back; q.answerShort = back; }
+      if (q) {
+        q.prompt = front; q.answer = back; q.answerShort = back;
+        if (cardImg.originalFront && cardImg.originalFront !== cardImg.front) deleteImage(cardImg.originalFront);
+        if (cardImg.originalBack && cardImg.originalBack !== cardImg.back) deleteImage(cardImg.originalBack);
+        q.imgFront = cardImg.front;
+        q.imgBack = cardImg.back;
+      }
     } else {
       const newCard = {
         id: "m" + Date.now() + Math.random().toString(36).slice(2, 7),
@@ -943,10 +1205,15 @@
         answer: back,
         answerShort: back,
         sourceSentence: "",
+        imgFront: cardImg.front,
+        imgBack: cardImg.back,
       };
       currentDeck.questions.push(newCard);
       lastAddedCardId = newCard.id;
     }
+    // The drafts are now the card's own images; don't let the reset bin them.
+    cardImg.originalFront = cardImg.front;
+    cardImg.originalBack = cardImg.back;
     upsertDeck(currentDeck);
     celebrateBadges(checkBadges());
     cancelEditCard();
@@ -1018,6 +1285,9 @@
     $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : q.type === "manual" ? "CARD" : "CLOZE";
     $("#flash-front-text").textContent = q.prompt;
     $("#flash-answer-text").textContent = q.answer;
+    paintCardImage($("#flash-front-img"), q.imgFront);
+    paintCardImage($("#flash-back-img"), q.imgBack);
+    updateFlashZoomBtn();
     $("#flash-context-text").textContent = !q.sourceSentence ? "" : q.type === "define" ? q.sourceSentence : `"${q.sourceSentence}"`;
     $("#flash-known-count").textContent = flash.known;
     $("#flash-learning-count").textContent = flash.learning;
@@ -1027,7 +1297,15 @@
   function flipFlashCard() {
     flash.flipped = !flash.flipped;
     $("#flash-card").classList.toggle("flipped", flash.flipped);
+    updateFlashZoomBtn();
     vibrate(8);
+  }
+
+  // Only offered when the side you're actually looking at has a picture.
+  function updateFlashZoomBtn() {
+    const q = currentFlashQuestion();
+    const id = q ? (flash.flipped ? q.imgBack : q.imgFront) : "";
+    $("#flash-zoom-btn").classList.toggle("hidden", !id);
   }
 
   function gradeFlashCard(known) {
@@ -1155,6 +1433,14 @@
     showScreen("screen-essay");
   }
 
+  $("#start-sticking").addEventListener("click", () => {
+    if (!currentDeck) return;
+    const stuck = stickingPoints(currentDeck);
+    if (!stuck.length) return;
+    toast("Worst first. If a card keeps beating you, rewrite it.");
+    beginFlashcardsSession(stuck);
+  });
+
   $("#start-essay").addEventListener("click", () => {
     if (!currentDeck) return;
     beginEssaySession(currentDeck.questions);
@@ -1168,6 +1454,7 @@
     const q = currentEssayQuestion();
     essay.revealed = false;
     $("#essay-question").textContent = q.prompt;
+    paintCardImage($("#essay-question-img"), q.imgFront);
     $("#essay-input").value = "";
     $("#essay-word-count").textContent = "0";
     $("#essay-write-stage").classList.remove("hidden");
@@ -1208,6 +1495,7 @@
     essay.revealed = true;
     essay.lastWords = words;
     $("#essay-model-text").textContent = q.answer;
+    paintCardImage($("#essay-model-img"), q.imgBack);
     $("#essay-your-text").textContent = text;
     $("#essay-your-count").textContent = `(${words} word${words === 1 ? "" : "s"})`;
     $("#essay-write-stage").classList.add("hidden");
@@ -1297,12 +1585,23 @@
     tab.addEventListener("click", () => openTab(tab.dataset.tab));
   });
 
+  ["#essay-question-img", "#essay-model-img"].forEach((sel) => makeZoomable($(sel)));
+
+  $("#flash-zoom-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const q = currentFlashQuestion();
+    if (!q) return;
+    const id = flash.flipped ? q.imgBack : q.imgFront;
+    if (id) openLightbox(id);
+  });
+  $("#lightbox-close").addEventListener("click", closeLightbox);
+  $("#lightbox").addEventListener("click", closeLightbox);
   $("#badge-sheet-close").addEventListener("click", closeBadgeSheet);
   $("#badge-sheet-backdrop").addEventListener("click", closeBadgeSheet);
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("#badge-sheet-wrap").classList.contains("hidden")) {
-      closeBadgeSheet();
-    }
+    if (e.key !== "Escape") return;
+    if (!$("#lightbox").classList.contains("hidden")) { closeLightbox(); return; }
+    if (!$("#badge-sheet-wrap").classList.contains("hidden")) closeBadgeSheet();
   });
 
   // ---------------------------------------------------------------
@@ -1487,6 +1786,18 @@
   // Init
   // ---------------------------------------------------------------
   resizeConfettiCanvas();
+
+  // Some browsers refuse IndexedDB outright (Firefox on a file:// page,
+  // strict private modes). Rather than offer a button that quietly does
+  // nothing, find out first and hide the image fields if it won't work.
+  imageStore.probe().then((ok) => {
+    imagesSupported = ok;
+    if (!ok) {
+      $("#card-front-img-field").classList.add("hidden");
+      $("#card-back-img-field").classList.add("hidden");
+    }
+  });
+
   if (!profile.name) {
     openProfileScreen(true);
   } else {

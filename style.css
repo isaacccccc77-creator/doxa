@@ -169,6 +169,7 @@ button { font-family: inherit; }
 .bento-tile-coral { background: linear-gradient(135deg, var(--coral-bright), var(--coral)); }
 .bento-tile-sage { background: linear-gradient(135deg, var(--sage-bright), var(--sage)); }
 .bento-tile-violet { background: linear-gradient(135deg, var(--violet-bright), var(--violet)); }
+.bento-tile-oxblood { background: linear-gradient(135deg, var(--oxblood-bright), var(--oxblood)); }
 
 /* ---------------- Ledger: streak / level / xp ---------------- */
 .ledger-item { min-width: 0; }
@@ -210,6 +211,96 @@ button { font-family: inherit; }
   width: 0%;
   background: #fff;
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
+}
+
+.lapse-tag {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 7px;
+  border-radius: 20px;
+  color: var(--oxblood);
+  background: rgba(193, 74, 55, 0.12);
+  border: 1px solid rgba(193, 74, 55, 0.3);
+}
+
+/* ---------------- Card images ---------------- */
+.card-img {
+  display: block;
+  /* Never blown up past its own resolution — a small diagram stays small
+     rather than turning into a blurry poster. */
+  max-width: 100%;
+  max-height: 46vh;
+  width: auto;
+  margin: 0 auto 12px;
+  border-radius: 10px;
+  background: rgba(36, 28, 16, 0.04);
+  cursor: zoom-in;
+}
+.essay-img { max-height: 34vh; margin-top: 10px; cursor: zoom-in; }
+/* Inside the flip card the picture is part of the tap-to-flip surface, so
+   enlarging gets its own control below the card instead. */
+#flash-front-img, #flash-back-img { cursor: inherit; }
+.flash-zoom-btn {
+  align-self: center;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.img-field { margin: -4px 0 16px; }
+.img-add-btn { display: block; }
+.img-preview { display: flex; align-items: flex-start; gap: 12px; }
+.img-thumb {
+  width: 86px;
+  height: 86px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--hair);
+  cursor: zoom-in;
+}
+.img-chip {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--teal);
+  background: rgba(31, 143, 146, 0.12);
+  border-radius: 20px;
+  padding: 2px 7px;
+  margin-right: 5px;
+}
+
+/* Full-screen viewer — a thumbnail is no use for a radiograph. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 15, 8, 0.93);
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.lightbox-close {
+  position: absolute;
+  top: calc(14px + var(--safe-top));
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  font-size: 1.1rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  cursor: pointer;
 }
 
 /* ---------------- Badges, trophies and the cupboard ---------------- */
