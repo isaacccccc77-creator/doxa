@@ -869,6 +869,60 @@
   }
   function dueCount(deck) { return deck.questions.filter((q) => isDue(deck, q.id)).length; }
 
+  // ---------------------------------------------------------------
+  // TOPICS: a tag on a card, so a subject that runs through several decks
+  // can be revised as one thing. Anatomy, physiology and pharmacology all
+  // have cardiology in them; the deck you happened to file a card in
+  // shouldn't decide what you can revise together.
+  // ---------------------------------------------------------------
+  const MAX_TAGS_PER_CARD = 8;
+  const MAX_TAG_LENGTH = 24;
+
+  function parseTags(text) {
+    const seen = [];
+    String(text || "").split(",").forEach((raw) => {
+      const tag = raw.trim().toLowerCase().replace(/\s+/g, " ").slice(0, MAX_TAG_LENGTH);
+      if (tag && seen.indexOf(tag) === -1) seen.push(tag);
+    });
+    return seen.slice(0, MAX_TAGS_PER_CARD);
+  }
+
+  function tagsOf(q) { return Array.isArray(q.tags) ? q.tags : []; }
+
+  // Every tag in use, with how many cards carry it and how many are due.
+  function topicIndex() {
+    const decks = loadDecks();
+    const byTag = new Map();
+    decks.forEach((deck) => {
+      deck.questions.forEach((q) => {
+        tagsOf(q).forEach((tag) => {
+          if (!byTag.has(tag)) byTag.set(tag, { tag, cards: 0, due: 0 });
+          const entry = byTag.get(tag);
+          entry.cards++;
+          if (isDue(deck, q.id)) entry.due++;
+        });
+      });
+    });
+    return Array.from(byTag.values())
+      .sort((a, b) => b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag));
+  }
+
+  function allKnownTags() {
+    return topicIndex().map((t) => t.tag);
+  }
+
+  // Cards carrying a tag, each paired with the deck it lives in so grading
+  // can find its way home.
+  function cardsForTag(tag) {
+    const out = [];
+    loadDecks().forEach((deck) => {
+      deck.questions.forEach((q) => {
+        if (tagsOf(q).indexOf(tag) !== -1) out.push({ q, deck });
+      });
+    });
+    return out;
+  }
+
   // A "sticking point" is a card you've missed repeatedly. Three misses is
   // the point where the problem is usually the card, not your memory —
   // it's too big, or it's really two cards wearing a trenchcoat.
@@ -917,10 +971,44 @@
   // ---------------------------------------------------------------
   // HOME
   // ---------------------------------------------------------------
+  function beginTopicSession(tag) {
+    const entries = cardsForTag(tag);
+    if (!entries.length) return;
+    // Same rule as Smart Review: what's due, or everything if nothing is.
+    const due = entries.filter(({ q, deck }) => isDue(deck, q.id));
+    const chosen = due.length ? due : entries;
+    // A topic review belongs to no single deck.
+    currentDeck = null;
+    toast(`${tag} — ${chosen.length} card${chosen.length === 1 ? "" : "s"}`);
+    beginFlashcardsSession(chosen);
+  }
+
+  function renderTopics() {
+    const topics = topicIndex();
+    const wrap = $("#topics-wrap");
+    const list = $("#topics-list");
+    list.innerHTML = "";
+    if (!topics.length) { wrap.classList.add("hidden"); return; }
+    wrap.classList.remove("hidden");
+    topics.forEach((t) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "topic-row";
+      row.innerHTML = `
+        <span class="topic-name">${escapeHtml(t.tag)}</span>
+        <span class="topic-meta">${t.cards} card${t.cards === 1 ? "" : "s"}${t.due > 0 ? ` · <b>${t.due} due</b>` : ""}</span>
+        <span class="btn-arrow">→</span>
+      `;
+      row.addEventListener("click", () => beginTopicSession(t.tag));
+      list.appendChild(row);
+    });
+  }
+
   function renderHome() {
     renderProfileHeader();
     renderHeaderChips();
     renderReminderUI();
+    renderTopics();
     const decks = loadDecks();
     const wrap = $("#saved-decks-wrap");
     const list = $("#saved-decks");
@@ -1018,6 +1106,10 @@
         showScreen("screen-home");
       } else if (target === "screen-summary" && currentDeck) {
         openDeckSummary(currentDeck);
+      } else if (target === "screen-summary") {
+        // A topic review isn't inside any one deck, so back means home.
+        renderHome();
+        showScreen("screen-home");
       } else {
         showScreen(target);
       }
@@ -1040,8 +1132,17 @@
   let editingCardId = null;
   let lastAddedCardId = null;
 
+  let lastManagedDeckId = null;
+
   function openManageCards(deck) {
     currentDeck = deck;
+    // Topics stay in the box between consecutive cards, but they shouldn't
+    // follow you into a different deck — carrying "pharmacology" into your
+    // anatomy deck is wrong far more often than it's right.
+    if (lastManagedDeckId !== deck.id) {
+      $("#card-tags").value = "";
+      lastManagedDeckId = deck.id;
+    }
     cancelEditCard();
     $("#manage-title").textContent = deck.title;
     renderManageList();
@@ -1067,6 +1168,7 @@
             ${lapses >= STICKING_THRESHOLD ? `<span class="lapse-tag" title="Missed ${lapses} times">missed ${lapses}×</span>` : ""}
           </div>
           <div class="deck-card-meta">${(q.imgFront || q.imgBack) ? '<span class="img-chip">🖼 image</span> ' : ""}${escapeHtml(back)}</div>
+          ${tagsOf(q).length ? `<div class="card-tags">${tagsOf(q).map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <button class="icon-btn card-delete" aria-label="Delete card">✕</button>
       `;
@@ -1140,10 +1242,35 @@
   makeZoomable($("#card-front-img-thumb"));
   makeZoomable($("#card-back-img-thumb"));
 
+  // Tags already in use, offered as one-tap chips so the same subject
+  // doesn't end up as "cardio", "cardiology" and "Cardiology".
+  function renderTagSuggestions() {
+    const current = parseTags($("#card-tags").value);
+    const available = allKnownTags().filter((t) => current.indexOf(t) === -1).slice(0, 12);
+    const wrap = $("#card-tag-suggestions");
+    wrap.innerHTML = "";
+    wrap.classList.toggle("hidden", available.length === 0);
+    available.forEach((tag) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "tag-chip";
+      chip.textContent = tag;
+      chip.addEventListener("click", () => {
+        $("#card-tags").value = current.concat(tag).join(", ");
+        renderTagSuggestions();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  $("#card-tags").addEventListener("input", renderTagSuggestions);
+
   function startEditCard(q) {
     editingCardId = q.id;
     $("#card-front").value = q.prompt;
     $("#card-back").value = q.answer;
+    $("#card-tags").value = tagsOf(q).join(", ");
+    renderTagSuggestions();
     resetCardImageDrafts(q);
     $("#card-save-btn").textContent = "Save changes";
     $("#card-cancel-btn").classList.remove("hidden");
@@ -1157,6 +1284,10 @@
     editingCardId = null;
     $("#card-front").value = "";
     $("#card-back").value = "";
+    // Topics are sticky between cards: consecutive cards are nearly always
+    // about the same thing, and retyping "cardiology, canine" forty times
+    // is how a tag system stops being used.
+    renderTagSuggestions();
     resetCardImageDrafts(null);
     $("#card-save-btn").textContent = "Add card";
     $("#card-cancel-btn").classList.add("hidden");
@@ -1192,6 +1323,7 @@
       const q = currentDeck.questions.find((qq) => qq.id === editingCardId);
       if (q) {
         q.prompt = front; q.answer = back; q.answerShort = back;
+        q.tags = parseTags($("#card-tags").value);
         if (cardImg.originalFront && cardImg.originalFront !== cardImg.front) deleteImage(cardImg.originalFront);
         if (cardImg.originalBack && cardImg.originalBack !== cardImg.back) deleteImage(cardImg.originalBack);
         q.imgFront = cardImg.front;
@@ -1205,6 +1337,7 @@
         answer: back,
         answerShort: back,
         sourceSentence: "",
+        tags: parseTags($("#card-tags").value),
         imgFront: cardImg.front,
         imgBack: cardImg.back,
       };
@@ -1233,12 +1366,38 @@
   // ---------------------------------------------------------------
   const flash = {
     order: [], index: 0, known: 0, learning: 0, flipped: false,
-    sourceQuestions: [], sessionXp: 0, leveledUp: false, newLevel: null,
+    sourceEntries: [], sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
-  function beginFlashcardsSession(questions) {
-    flash.sourceQuestions = questions;
-    flash.order = questions.map((q) => q.id);
+  // A topic review spans decks, so neither the card nor the deck it belongs
+  // to can be read off currentDeck any more. The pool holds both for the
+  // cards in play, and grading routes each answer back to its own deck.
+  const pool = { byId: new Map(), deckOfCard: new Map(), decks: new Map() };
+
+  // Sessions are lists of {q, deck} entries, never cards alone.
+  function withDeck(questions, deck) {
+    return questions.map((q) => ({ q, deck }));
+  }
+
+  function setSessionPool(entries) {
+    pool.byId.clear();
+    pool.deckOfCard.clear();
+    pool.decks.clear();
+    entries.forEach(({ q, deck }) => {
+      pool.byId.set(q.id, q);
+      pool.deckOfCard.set(q.id, deck.id);
+      if (!pool.decks.has(deck.id)) pool.decks.set(deck.id, deck);
+    });
+  }
+
+  function poolDeckFor(qid) {
+    return pool.decks.get(pool.deckOfCard.get(qid)) || currentDeck;
+  }
+
+  function beginFlashcardsSession(entries) {
+    setSessionPool(entries);
+    flash.sourceEntries = entries;
+    flash.order = entries.map((e) => e.q.id);
     shuffleArr(flash.order);
     flash.index = 0;
     flash.known = 0;
@@ -1252,13 +1411,13 @@
 
   $("#start-flashcards").addEventListener("click", () => {
     if (!currentDeck) return;
-    beginFlashcardsSession(currentDeck.questions);
+    beginFlashcardsSession(withDeck(currentDeck.questions, currentDeck));
   });
 
   $("#start-smart-review").addEventListener("click", () => {
     if (!currentDeck) return;
     const due = currentDeck.questions.filter((q) => isDue(currentDeck, q.id));
-    beginFlashcardsSession(due.length ? due : currentDeck.questions);
+    beginFlashcardsSession(withDeck(due.length ? due : currentDeck.questions, currentDeck));
   });
 
   $("#flash-shuffle").addEventListener("click", () => {
@@ -1269,8 +1428,7 @@
   });
 
   function currentFlashQuestion() {
-    const id = flash.order[flash.index];
-    return currentDeck.questions.find((q) => q.id === id);
+    return pool.byId.get(flash.order[flash.index]);
   }
 
   function renderFlashCard() {
@@ -1310,9 +1468,10 @@
 
   function gradeFlashCard(known) {
     const q = currentFlashQuestion();
+    const deck = poolDeckFor(q.id);
     profile.stats.cardsGraded++;
-    gradeQuestion(currentDeck, q.id, known);
-    upsertDeck(currentDeck);
+    gradeQuestion(deck, q.id, known);
+    upsertDeck(deck);
     if (known) flash.known++; else flash.learning++;
 
     const xpGain = known ? XP_KNOWN : XP_LEARNING;
@@ -1393,7 +1552,7 @@
     if (flash.leveledUp || newlyBadges.length) { burstConfetti(); vibrate([15, 40, 15]); }
 
     $("#results-retry").textContent = "Study these again";
-    $("#results-retry").onclick = () => beginFlashcardsSession(flash.sourceQuestions);
+    $("#results-retry").onclick = () => beginFlashcardsSession(flash.sourceEntries);
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }
@@ -1421,6 +1580,7 @@
   }
 
   function beginEssaySession(questions) {
+    setSessionPool(withDeck(questions, currentDeck));
     essay.order = questions.slice();
     shuffleArr(essay.order);
     essay.index = 0;
@@ -1438,7 +1598,7 @@
     const stuck = stickingPoints(currentDeck);
     if (!stuck.length) return;
     toast("Worst first. If a card keeps beating you, rewrite it.");
-    beginFlashcardsSession(stuck);
+    beginFlashcardsSession(withDeck(stuck, currentDeck));
   });
 
   $("#start-essay").addEventListener("click", () => {

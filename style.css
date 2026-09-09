@@ -225,6 +225,71 @@ button { font-family: inherit; }
   border: 1px solid rgba(193, 74, 55, 0.3);
 }
 
+/* ---------------- Topics (cross-deck tags) ---------------- */
+.section-note {
+  margin: 6px 2px 12px;
+  font-size: 0.72rem;
+  color: var(--taupe);
+  font-style: italic;
+}
+.topic-list { display: flex; flex-direction: column; gap: 8px; }
+.topic-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  box-shadow: 0 2px 6px rgba(120, 88, 30, 0.06);
+  transition: transform 0.16s var(--bounce);
+}
+.topic-row:active { transform: scale(0.98); }
+.topic-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  font-weight: 560;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topic-meta { font-size: 0.7rem; color: var(--taupe); flex-shrink: 0; }
+.topic-meta b { color: var(--coral); font-weight: 700; }
+.topic-row .btn-arrow { color: var(--gold); flex-shrink: 0; }
+
+/* Tag entry in the card editor. */
+.tag-suggest { display: flex; flex-wrap: wrap; gap: 7px; margin: -6px 0 16px; }
+.tag-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1px dashed var(--hair);
+  background: none;
+  color: var(--taupe);
+  cursor: pointer;
+}
+.tag-chip:active { transform: scale(0.94); }
+
+/* Tags shown on a card in the list. */
+.card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.tag-pill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  color: var(--violet);
+  background: rgba(122, 94, 214, 0.12);
+}
+
 /* ---------------- Card images ---------------- */
 .card-img {
   display: block;

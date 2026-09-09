@@ -101,6 +101,12 @@
       <div class="hint">Start a deck and add your own front → back cards.</div>
     </div>
 
+    <div id="topics-wrap" class="hidden">
+      <h2 class="section-title">Topics</h2>
+      <p class="section-note">Revise a subject across every deck it appears in.</p>
+      <div id="topics-list" class="topic-list"></div>
+    </div>
+
     <div id="saved-decks-wrap" class="hidden">
       <h2 class="section-title">Your decks</h2>
       <div id="saved-decks" class="deck-list"></div>
@@ -218,6 +224,10 @@
         </div>
         <input id="card-back-img-input" type="file" accept="image/*" class="hidden" />
       </div>
+
+      <label class="field-label" for="card-tags">Topics <span class="optional">(optional, comma separated)</span></label>
+      <input id="card-tags" type="text" placeholder="e.g. cardiology, canine" maxlength="200" />
+      <div id="card-tag-suggestions" class="tag-suggest hidden"></div>
 
       <button id="card-save-btn" class="btn btn-primary btn-full">Add card</button>
       <button id="card-cancel-btn" class="btn-text hidden">Cancel edit</button>
