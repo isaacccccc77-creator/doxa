@@ -212,33 +212,359 @@ button { font-family: inherit; }
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
 
-/* ---------------- Badges: ring medallions ---------------- */
-.badges-row { display: flex; gap: 16px; overflow-x: auto; padding: 2px 2px 8px; -ms-overflow-style: none; scrollbar-width: none; }
-.badges-row::-webkit-scrollbar { display: none; }
-.badge { flex-shrink: 0; width: 54px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
-.badge-ring {
-  width: 46px; height: 46px;
-  border-radius: 50%;
-  border: 1px solid var(--hair);
-  display: flex; align-items: center; justify-content: center;
+/* ---------------- Badges, trophies and the cupboard ---------------- */
+
+/* Home-screen teaser strip: recent badges + the next one within reach. */
+.strip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0 2px 10px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+.strip-head-text { display: flex; flex-direction: column; gap: 2px; }
+.strip-title {
   font-family: var(--serif);
+  font-size: 1.02rem;
   font-weight: 560;
-  font-size: 0.95rem;
+  color: var(--ink);
+}
+.strip-sub { font-size: 0.72rem; color: var(--taupe); letter-spacing: 0.01em; }
+.strip-head .btn-arrow { color: var(--gold); font-size: 1.1rem; }
+
+.badges-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.badges-row::-webkit-scrollbar { display: none; }
+
+/* A single trophy: a coloured disc with an emoji, and its name beneath. */
+.trophy {
+  flex-shrink: 0;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.18s var(--bounce);
+}
+.trophy:active { transform: scale(0.9); }
+.trophy-disc {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  position: relative;
+  border: 1.5px solid transparent;
+}
+.trophy-icon { display: block; transform: translateY(-1px); }
+.trophy-name {
+  font-size: 0.62rem;
+  line-height: 1.3;
+  text-align: center;
+  letter-spacing: 0.01em;
   color: var(--taupe);
 }
-.badge.earned .badge-ring {
-  border-color: var(--gold-dim);
-  color: var(--gold);
-  box-shadow: 0 0 0 1px rgba(201,169,97,0.15);
+
+/* Earned: lit up in its shelf's colour, with a soft ring and a glint. */
+.trophy.earned .trophy-disc,
+.trophy-disc.earned {
+  background: linear-gradient(160deg, var(--tone-bright), var(--tone));
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 3px 10px var(--tone-glow), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
-.badge-label {
-  font-size: 0.58rem;
+.trophy.earned .trophy-disc::after,
+.trophy-disc.earned::after {
+  content: "";
+  position: absolute;
+  inset: 3px 3px 55% 3px;
+  border-radius: 50% 50% 40% 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent);
+  pointer-events: none;
+}
+.trophy.earned .trophy-name { color: var(--ink); font-weight: 600; }
+
+/* Locked: still visible, so you know what you're aiming at. */
+.trophy.locked .trophy-disc,
+.trophy-disc.locked {
+  background: rgba(125, 112, 87, 0.07);
+  border: 1.5px dashed var(--hair);
+  box-shadow: none;
+}
+.trophy.locked .trophy-icon,
+.trophy-disc.locked .trophy-icon { filter: grayscale(1); opacity: 0.34; }
+
+/* Per-shelf colour tokens. */
+.trophy-start   { --tone: var(--gold);   --tone-bright: var(--gold-bright);   --tone-glow: rgba(184, 131, 27, 0.3); }
+.trophy-streak  { --tone: var(--coral);  --tone-bright: var(--coral-bright);  --tone-glow: rgba(226, 98, 47, 0.28); }
+.trophy-mastery { --tone: var(--teal);   --tone-bright: var(--teal-bright);   --tone-glow: rgba(31, 143, 146, 0.28); }
+.trophy-writing { --tone: var(--violet); --tone-bright: var(--violet-bright); --tone-glow: rgba(122, 94, 214, 0.28); }
+.trophy-curios  { --tone: var(--sage);   --tone-bright: var(--sage-bright);   --tone-glow: rgba(63, 132, 89, 0.28); }
+
+/* ---------------- The cupboard ---------------- */
+.cupboard-progress { margin: -6px 0 2px; }
+.cupboard-progress .xp-rule { height: 8px; background: rgba(125, 112, 87, 0.14); }
+.cupboard-progress .xp-rule-fill { background: linear-gradient(90deg, var(--gold-bright), var(--gold)); }
+
+.stat-grid { grid-template-columns: repeat(3, 1fr); }
+.stat-tile { min-height: 78px; }
+
+.cupboard {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 20px 16px 8px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(184, 131, 27, 0.07), rgba(184, 131, 27, 0.02)),
+    var(--panel-2);
+  border: 1px solid var(--hair);
+  box-shadow: inset 0 2px 12px rgba(120, 88, 30, 0.07);
+}
+
+.shelf { display: flex; flex-direction: column; gap: 4px; }
+.shelf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.shelf-plate {
+  font-family: var(--serif);
+  font-size: 0.92rem;
+  font-weight: 560;
+  color: var(--ink);
+}
+.shelf-tally {
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  font-weight: 700;
+}
+.shelf-note {
+  font-size: 0.68rem;
+  color: var(--taupe);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+.shelf-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 16px 6px;
+  padding-bottom: 12px;
+}
+.shelf-items .trophy { width: 100%; }
+
+/* The board the trophies stand on. */
+.shelf-board {
+  height: 9px;
+  border-radius: 2px 2px 4px 4px;
+  background: linear-gradient(180deg, #d9c191 0%, #c2a672 55%, #a8894f 100%);
+  box-shadow: 0 3px 7px rgba(120, 88, 30, 0.18);
+}
+
+/* Trophies settle onto the shelf once, then stay put. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen.active .shelf-items .trophy {
+    animation: trophy-settle 0.42s var(--bounce) backwards;
+    animation-delay: var(--stagger, 0ms);
+  }
+}
+@keyframes trophy-settle {
+  from { opacity: 0; transform: translateY(-10px) scale(0.86); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------------- "Nearly there" progress rows ---------------- */
+.next-list { display: flex; flex-direction: column; gap: 10px; }
+.next-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  box-shadow: 0 2px 6px rgba(120, 88, 30, 0.06);
+  transition: transform 0.16s var(--bounce);
+}
+.next-row:active { transform: scale(0.98); }
+.next-disc { width: 40px; height: 40px; font-size: 1.15rem; flex-shrink: 0; }
+.next-disc.locked { border-color: var(--tone); background: rgba(255, 255, 255, 0.6); }
+.next-disc.locked .trophy-icon { filter: none; opacity: 0.9; }
+.next-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.next-title { font-size: 0.84rem; font-weight: 650; color: var(--ink); }
+.next-desc {
+  font-size: 0.68rem;
+  color: var(--taupe);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.next-track {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(125, 112, 87, 0.16);
+  overflow: hidden;
+  margin-top: 2px;
+}
+.next-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-bright), var(--gold));
+  transition: width 0.6s cubic-bezier(.2,.8,.2,1);
+}
+.next-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ---------------- Badge detail sheet ---------------- */
+.sheet-wrap { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; }
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(36, 28, 16, 0.4);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.sheet-wrap.open .sheet-backdrop { opacity: 1; }
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 10px 24px calc(26px + var(--safe-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--paper);
+  border-top: 1px solid var(--hair);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transform: translateY(100%);
+  transition: transform 0.24s var(--bounce);
+}
+.sheet-wrap.open .sheet { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sheet { transition: none; transform: none; }
+  .sheet-backdrop { transition: none; }
+}
+.sheet-grip {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hair);
+  margin-bottom: 12px;
+}
+.sheet-disc { width: 76px; height: 76px; font-size: 2.1rem; }
+.sheet-shelf {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--taupe);
+  margin-top: 6px;
+}
+.sheet-name {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 560;
+  color: var(--ink);
+  text-align: center;
+}
+.sheet-desc {
+  font-size: 0.85rem;
   color: var(--taupe);
   text-align: center;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
+  line-height: 1.5;
+  max-width: 30ch;
 }
-.badge.earned .badge-label { color: var(--ink); }
+.sheet-status {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--taupe);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.sheet-status.earned { color: var(--sage); }
+.sheet-bar {
+  width: 100%;
+  max-width: 240px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(125, 112, 87, 0.16);
+  overflow: hidden;
+}
+.sheet-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-bright), var(--gold));
+}
+.sheet .btn-full { margin-top: 18px; }
+
+/* ---------------- Bottom tab bar ---------------- */
+/* The bar sticks over the page as it scrolls, so tabbed screens leave
+   room underneath for it rather than hiding their last row. */
+.tabbed-main { padding-bottom: 88px; }
+
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(250, 243, 230, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--hair);
+  margin-top: auto;
+}
+.tab {
+  flex: 1 1 0;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px 5px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+  color: var(--taupe);
+  transition: background 0.18s ease, transform 0.14s var(--bounce);
+}
+.tab:active { transform: scale(0.94); }
+.tab-icon { font-size: 1.15rem; line-height: 1; filter: grayscale(1); opacity: 0.5; transition: filter 0.2s ease, opacity 0.2s ease; }
+.tab-label { font-size: 0.62rem; font-weight: 650; letter-spacing: 0.02em; }
+.tab.active { background: rgba(184, 131, 27, 0.12); color: var(--gold-dim); }
+.tab.active .tab-icon { filter: none; opacity: 1; }
 
 /* ---------------- Reminder toggle ---------------- */
 .reminder-row {
@@ -762,6 +1088,7 @@ textarea.textarea-medium { min-height: 150px; }
 .result-line.xp { border-left-color: var(--gold-dim); color: var(--gold); }
 .result-line.levelup { border-left-color: var(--sage); color: var(--sage); }
 .result-line.badge { border-left-color: var(--gold); color: var(--gold); }
+.result-badge-icon { margin-right: 7px; font-size: 1.05rem; vertical-align: -2px; }
 .missed-wrap { width: 100%; text-align: left; }
 .missed-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .missed-item {

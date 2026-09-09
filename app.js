@@ -11,12 +11,83 @@
   const XP_STREAK_BONUS = 15;
   const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
 
+  // Shelves of the cupboard. Order here is the order they're displayed in.
+  const BADGE_GROUPS = [
+    { id: "start", label: "First Steps", note: "Getting the shelf started" },
+    { id: "streak", label: "Consistency", note: "Showing up, day after day" },
+    { id: "mastery", label: "Mastery", note: "Cards you genuinely know" },
+    { id: "writing", label: "The Writing Desk", note: "Answers in your own words" },
+    { id: "curios", label: "Curiosities", note: "Odd hours and happy returns" },
+  ];
+
+  // Every badge is the same shape: a number you're working towards and a
+  // way to read that number off your progress. That gives locked badges a
+  // real progress bar instead of a shrug, which is the whole point — you
+  // should always be able to see what's within reach.
   const BADGES = [
-    { id: "first_deck", icon: "1", label: "First Deck", check: (p, decks) => decks.length >= 1 },
-    { id: "streak_3", icon: "3", label: "3-Day Streak", check: (p) => (p.streak.best || 0) >= 3 },
-    { id: "streak_7", icon: "7", label: "7-Day Streak", check: (p) => (p.streak.best || 0) >= 7 },
-    { id: "cards_50", icon: "50", label: "50 Mastered", check: (p, decks) => totalKnownAcrossDecks(decks) >= 50 },
-    { id: "essayist", icon: "E", label: "Essayist", check: (p) => ((p.flags && p.flags.essaysWritten) || 0) >= 5 },
+    // First Steps
+    { id: "first_deck", icon: "📚", label: "First Deck", group: "start", target: 1,
+      desc: "Create your very first deck.", value: (c) => c.deckCount },
+    { id: "first_session", icon: "🎬", label: "Opening Night", group: "start", target: 1,
+      desc: "Finish a study session from start to end.", value: (c) => c.stats.sessions },
+    { id: "cards_written_10", ladder: "cards_written", icon: "✍️", label: "Card Writer", group: "start", target: 10,
+      desc: "Write 10 cards of your own.", value: (c) => c.cardCount },
+    { id: "cards_written_50", ladder: "cards_written", icon: "🗃️", label: "Deck Builder", group: "start", target: 50,
+      desc: "Write 50 cards of your own.", value: (c) => c.cardCount },
+
+    // Consistency
+    { id: "streak_3", ladder: "streak", icon: "🌱", label: "Sprout", group: "streak", target: 3,
+      desc: "Study three days in a row.", value: (c) => c.bestStreak },
+    { id: "streak_7", ladder: "streak", icon: "🔥", label: "Kindling", group: "streak", target: 7,
+      desc: "Keep a streak going for a full week.", value: (c) => c.bestStreak },
+    { id: "streak_14", ladder: "streak", icon: "⭐", label: "Fortnight", group: "streak", target: 14,
+      desc: "Fourteen days without missing one.", value: (c) => c.bestStreak },
+    { id: "streak_30", ladder: "streak", icon: "🏔️", label: "Summit", group: "streak", target: 30,
+      desc: "A thirty-day streak. Properly hard.", value: (c) => c.bestStreak },
+    { id: "study_days_25", icon: "📅", label: "Regular", group: "streak", target: 25,
+      desc: "Study on 25 different days — streak or not.", value: (c) => c.stats.studyDays },
+
+    // Mastery
+    { id: "cards_10", ladder: "mastered", icon: "🎯", label: "Ten Down", group: "mastery", target: 10,
+      desc: "Get 10 cards to Known.", value: (c) => c.mastered },
+    { id: "cards_50", ladder: "mastered", icon: "🧠", label: "Fifty Strong", group: "mastery", target: 50,
+      desc: "Get 50 cards to Known.", value: (c) => c.mastered },
+    { id: "cards_150", ladder: "mastered", icon: "👑", label: "Scholar", group: "mastery", target: 150,
+      desc: "Get 150 cards to Known.", value: (c) => c.mastered },
+    { id: "perfect_1", ladder: "perfect", icon: "✨", label: "Clean Sweep", group: "mastery", target: 1,
+      desc: "Finish a session without missing a single card.", value: (c) => c.stats.perfectSessions },
+    { id: "perfect_10", ladder: "perfect", icon: "💎", label: "Flawless Ten", group: "mastery", target: 10,
+      desc: "Ten clean sweeps.", value: (c) => c.stats.perfectSessions },
+    { id: "level_5", ladder: "level", icon: "🎖️", label: "Level Five", group: "mastery", target: 5,
+      desc: "Reach level 5.", value: (c) => c.level },
+    { id: "level_10", ladder: "level", icon: "🏆", label: "Level Ten", group: "mastery", target: 10,
+      desc: "Reach level 10.", value: (c) => c.level },
+
+    // The Writing Desk
+    { id: "essay_1", ladder: "essays", icon: "📝", label: "First Draft", group: "writing", target: 1,
+      desc: "Write your first full essay answer.", value: (c) => c.stats.essaysWritten },
+    { id: "essayist", ladder: "essays", icon: "🖋️", label: "Essayist", group: "writing", target: 5,
+      desc: "Write five essay answers.", value: (c) => c.stats.essaysWritten },
+    { id: "essay_25", ladder: "essays", icon: "📜", label: "Prolific", group: "writing", target: 25,
+      desc: "Write twenty-five essay answers.", value: (c) => c.stats.essaysWritten },
+    { id: "words_1000", ladder: "words", icon: "🪶", label: "A Thousand Words", group: "writing", target: 1000,
+      desc: "Write 1,000 words across your essays.", value: (c) => c.stats.essayWords },
+    { id: "words_10000", ladder: "words", icon: "📖", label: "Ten Thousand", group: "writing", target: 10000,
+      desc: "Write 10,000 words across your essays.", value: (c) => c.stats.essayWords },
+    { id: "long_form", icon: "🧵", label: "Long Form", group: "writing", target: 300,
+      desc: "Write a single answer of 300 words or more.", value: (c) => c.stats.longestEssay },
+
+    // Curiosities
+    { id: "early_bird", icon: "🌅", label: "Early Bird", group: "curios", target: 1,
+      desc: "Finish a session before 7am.", value: (c) => c.stats.earlyBird },
+    { id: "night_owl", icon: "🦉", label: "Night Owl", group: "curios", target: 1,
+      desc: "Finish a session after 11pm.", value: (c) => c.stats.nightOwl },
+    { id: "weekend_5", icon: "🛋️", label: "Weekend Scholar", group: "curios", target: 5,
+      desc: "Study on five weekend days.", value: (c) => c.stats.weekendSessions },
+    { id: "comeback", icon: "🌤️", label: "Comeback", group: "curios", target: 1,
+      desc: "Come back after a break of three days or more.", value: (c) => c.stats.comebacks },
+    { id: "collector", icon: "🗂️", label: "Collector", group: "curios", target: 5,
+      desc: "Keep five decks on the go at once.", value: (c) => c.deckCount },
   ];
 
   const AVATAR_OPTIONS = [
@@ -86,6 +157,7 @@
   let navGuardActive = false;
   function showScreen(id) {
     $all(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
+    $all(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === id));
     window.scrollTo(0, 0);
     if (id === "screen-home") {
       navGuardActive = false;
@@ -123,6 +195,21 @@
     p.badges = p.badges || {};
     p.reminder = p.reminder || { enabled: false, lastNotifiedDate: null };
     p.flags = p.flags || {};
+    p.stats = p.stats || {};
+    const st = p.stats;
+    st.sessions = st.sessions || 0;
+    st.perfectSessions = st.perfectSessions || 0;
+    st.cardsGraded = st.cardsGraded || 0;
+    // Older profiles kept the essay counter on flags; carry it over once.
+    st.essaysWritten = st.essaysWritten || (p.flags.essaysWritten || 0);
+    st.essayWords = st.essayWords || 0;
+    st.longestEssay = st.longestEssay || 0;
+    st.studyDays = st.studyDays || 0;
+    st.earlyBird = st.earlyBird || 0;
+    st.nightOwl = st.nightOwl || 0;
+    st.weekendSessions = st.weekendSessions || 0;
+    st.weekendDate = st.weekendDate || null;
+    st.comebacks = st.comebacks || 0;
     p.name = p.name || "";
     p.avatarEmoji = p.avatarEmoji || AVATAR_OPTIONS[0].emoji;
     p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
@@ -300,8 +387,13 @@
   function touchStreak() {
     const today = todayStr();
     if (profile.streak.lastStudyDate === today) return;
+    const gap = profile.streak.lastStudyDate
+      ? daysBetween(profile.streak.lastStudyDate, today)
+      : null;
+    profile.stats.studyDays++;
+    if (gap !== null && gap >= 3) profile.stats.comebacks++;
     let newCount;
-    if (profile.streak.lastStudyDate && daysBetween(profile.streak.lastStudyDate, today) === 1) {
+    if (gap === 1) {
       newCount = (profile.streak.count || 0) + 1;
     } else {
       newCount = 1;
@@ -312,14 +404,37 @@
     saveProfile(profile);
     renderHeaderChips();
     addXp(XP_STREAK_BONUS);
+    let milestoneHit = false;
     if (newCount > 1) {
       toast(`${newCount}-day streak`);
       if (STREAK_MILESTONES.includes(newCount)) {
+        milestoneHit = true;
         burstConfetti();
         vibrate([15, 40, 15, 40, 15]);
       }
     }
-    checkBadges();
+    celebrateBadges(checkBadges(), milestoneHit);
+  }
+
+  // Called once per finished session — the odd-hours badges and the
+  // clean-sweep counters all key off this.
+  function recordSession(perfect) {
+    const st = profile.stats;
+    const now = new Date();
+    st.sessions++;
+    if (perfect) st.perfectSessions++;
+    const hour = now.getHours();
+    if (hour < 7) st.earlyBird++;
+    if (hour >= 23) st.nightOwl++;
+    const day = now.getDay();
+    const today = todayStr();
+    // Weekend study is counted per day, not per session, so five sessions
+    // on one Sunday is still one weekend.
+    if ((day === 0 || day === 6) && st.weekendDate !== today) {
+      st.weekendDate = today;
+      st.weekendSessions++;
+    }
+    saveProfile(profile);
   }
 
   function totalKnownAcrossDecks(decks) {
@@ -333,11 +448,36 @@
     return count;
   }
 
-  function checkBadges() {
+  // Everything a badge might want to measure itself against, gathered once.
+  function badgeContext() {
     const decks = loadDecks();
+    let cardCount = 0;
+    for (const deck of decks) cardCount += deck.questions.length;
+    return {
+      deckCount: decks.length,
+      cardCount,
+      mastered: totalKnownAcrossDecks(decks),
+      bestStreak: profile.streak.best || 0,
+      level: levelInfo(profile.xp).level,
+      stats: profile.stats,
+    };
+  }
+
+  function badgeProgress(badge, ctx) {
+    const value = Math.max(0, badge.value(ctx));
+    return {
+      value,
+      target: badge.target,
+      pct: Math.min(100, Math.round((value / badge.target) * 100)),
+      done: value >= badge.target,
+    };
+  }
+
+  function checkBadges() {
+    const ctx = badgeContext();
     const newly = [];
     for (const b of BADGES) {
-      if (!profile.badges[b.id] && b.check(profile, decks)) {
+      if (!profile.badges[b.id] && badgeProgress(b, ctx).done) {
         profile.badges[b.id] = Date.now();
         newly.push(b);
       }
@@ -347,22 +487,199 @@
     return newly;
   }
 
+  // A teaser strip on the home screen: what you've most recently earned,
+  // plus the one badge you're closest to. The full set lives in the Cupboard.
   function renderBadgesRow() {
-    const decks = loadDecks();
-    const earnedAny = Object.keys(profile.badges).length > 0;
+    const ctx = badgeContext();
+    const earnedIds = Object.keys(profile.badges);
     const wrap = $("#badges-wrap");
-    if (decks.length === 0 && !earnedAny) { wrap.classList.add("hidden"); return; }
+    if (ctx.deckCount === 0 && earnedIds.length === 0) { wrap.classList.add("hidden"); return; }
     wrap.classList.remove("hidden");
+
+    $("#badges-count").textContent = `${earnedIds.length} of ${BADGES.length}`;
+
+    const earned = BADGES.filter((b) => profile.badges[b.id])
+      .sort((a, b) => profile.badges[b.id] - profile.badges[a.id]);
+    const next = nextUpBadges(ctx, 1)[0];
+
     const row = $("#badges-row");
     row.innerHTML = "";
-    for (const b of BADGES) {
-      const earned = !!profile.badges[b.id];
-      const el = document.createElement("div");
-      el.className = "badge" + (earned ? " earned" : "");
-      el.title = earned ? `${b.label} — earned ${new Date(profile.badges[b.id]).toLocaleDateString()}` : `${b.label} — locked`;
-      el.innerHTML = `<div class="badge-ring">${b.icon}</div><div class="badge-label">${b.label}</div>`;
-      row.appendChild(el);
+    earned.slice(0, 5).forEach((b) => row.appendChild(trophyEl(b, ctx, true)));
+    if (next) row.appendChild(trophyEl(next, ctx, false));
+    if (!earned.length && !next) row.appendChild(trophyEl(BADGES[0], ctx, false));
+  }
+
+  // Badges won outside a study session have no results screen to land on,
+  // so they announce themselves.
+  function celebrateBadges(newly, skipConfetti) {
+    if (!newly.length) return;
+    const b = newly[0];
+    toast(newly.length === 1
+      ? `${b.icon}  Badge earned — ${b.label}`
+      : `${b.icon}  ${newly.length} badges earned`);
+    // Streak milestones fire their own burst; don't stack a second one.
+    if (!skipConfetti) { burstConfetti(40); vibrate([15, 40, 15]); }
+  }
+
+  // Locked badges you're closest to finishing, nearest first. Where badges
+  // form a ladder only the next rung is offered — being told to reach level
+  // ten while level five is still locked isn't a nudge, it's noise.
+  function nextUpBadges(ctx, limit) {
+    const seenLadders = {};
+    return BADGES
+      .filter((b) => !profile.badges[b.id])
+      .filter((b) => {
+        if (!b.ladder) return true;
+        if (seenLadders[b.ladder]) return false;
+        seenLadders[b.ladder] = true;
+        return true;
+      })
+      .map((b) => ({ badge: b, prog: badgeProgress(b, ctx) }))
+      .sort((a, b) => b.prog.pct - a.prog.pct || a.prog.target - b.prog.target)
+      .slice(0, limit)
+      .map((x) => x.badge);
+  }
+
+  // ---------------------------------------------------------------
+  // THE CUPBOARD: every badge on a shelf, earned ones lit up and locked
+  // ones sitting there in outline so you can see what's still to come.
+  // ---------------------------------------------------------------
+  function trophyEl(badge, ctx, earned) {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "trophy trophy-" + badge.group + (earned ? " earned" : " locked");
+    el.setAttribute("aria-label", badge.label + (earned ? " — earned" : " — locked"));
+    el.innerHTML = `
+      <span class="trophy-disc"><span class="trophy-icon">${badge.icon}</span></span>
+      <span class="trophy-name">${escapeHtml(badge.label)}</span>
+    `;
+    el.addEventListener("click", () => openBadgeSheet(badge, ctx));
+    return el;
+  }
+
+  function formatNumber(n) {
+    return n.toLocaleString();
+  }
+
+  function openBadgeSheet(badge, ctx) {
+    const prog = badgeProgress(badge, ctx);
+    const earnedAt = profile.badges[badge.id];
+    const group = BADGE_GROUPS.find((g) => g.id === badge.group);
+
+    $("#badge-sheet-disc").className = "trophy-disc sheet-disc trophy-" + badge.group + (earnedAt ? " earned" : " locked");
+    $("#badge-sheet-disc").innerHTML = `<span class="trophy-icon">${badge.icon}</span>`;
+    $("#badge-sheet-shelf").textContent = group ? group.label : "";
+    $("#badge-sheet-name").textContent = badge.label;
+    $("#badge-sheet-desc").textContent = badge.desc;
+
+    const status = $("#badge-sheet-status");
+    const bar = $("#badge-sheet-bar");
+    const fill = $("#badge-sheet-fill");
+    if (earnedAt) {
+      status.textContent = "Earned " + new Date(earnedAt).toLocaleDateString(undefined, {
+        day: "numeric", month: "long", year: "numeric",
+      });
+      status.classList.add("earned");
+      bar.classList.add("hidden");
+    } else {
+      status.textContent = `${formatNumber(prog.value)} of ${formatNumber(prog.target)}`;
+      status.classList.remove("earned");
+      bar.classList.remove("hidden");
+      fill.style.width = prog.pct + "%";
     }
+
+    $("#badge-sheet-wrap").classList.remove("hidden");
+    // Let the browser paint the hidden state first so the slide-up runs.
+    requestAnimationFrame(() => $("#badge-sheet-wrap").classList.add("open"));
+  }
+
+  function closeBadgeSheet() {
+    const wrap = $("#badge-sheet-wrap");
+    wrap.classList.remove("open");
+    setTimeout(() => wrap.classList.add("hidden"), 220);
+  }
+
+  function renderCupboard() {
+    const ctx = badgeContext();
+    const earnedCount = BADGES.filter((b) => profile.badges[b.id]).length;
+    const st = profile.stats;
+
+    $("#cupboard-owner").textContent = profile.name
+      ? `${profile.name}'s cupboard`
+      : "Your cupboard";
+    $("#cupboard-count").textContent = `${earnedCount} of ${BADGES.length} badges on the shelf`;
+    $("#cupboard-fill").style.width = Math.round((earnedCount / BADGES.length) * 100) + "%";
+    setBubbleAvatar($("#cupboard-avatar"), profile.avatarEmoji, profile.avatarBg, profile.avatarPhoto);
+
+    const tiles = [
+      { label: "Cards mastered", value: formatNumber(ctx.mastered), tone: "teal" },
+      { label: "Essays written", value: formatNumber(st.essaysWritten), tone: "coral" },
+      { label: "Words written", value: formatNumber(st.essayWords), tone: "violet" },
+      { label: "Best streak", value: formatNumber(ctx.bestStreak), unit: ctx.bestStreak === 1 ? "day" : "days", tone: "gold" },
+      { label: "Days studied", value: formatNumber(st.studyDays), tone: "sage" },
+      { label: "Clean sweeps", value: formatNumber(st.perfectSessions), tone: "teal" },
+    ];
+    $("#cupboard-stats").innerHTML = tiles.map((t) => `
+      <div class="bento-tile bento-tile-${t.tone} stat-tile">
+        <div class="ledger-label">${t.label}</div>
+        <div class="ledger-value">${t.value}${t.unit ? `<small>${t.unit}</small>` : ""}</div>
+      </div>
+    `).join("");
+
+    // Nearly there — the three closest locked badges, with progress.
+    const near = nextUpBadges(ctx, 3);
+    const nearWrap = $("#cupboard-next-wrap");
+    const nearList = $("#cupboard-next");
+    nearList.innerHTML = "";
+    if (near.length === 0) {
+      nearWrap.classList.add("hidden");
+    } else {
+      nearWrap.classList.remove("hidden");
+      near.forEach((b) => {
+        const prog = badgeProgress(b, ctx);
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "next-row";
+        row.innerHTML = `
+          <span class="trophy-disc next-disc trophy-${b.group} locked"><span class="trophy-icon">${b.icon}</span></span>
+          <span class="next-body">
+            <span class="next-title">${escapeHtml(b.label)}</span>
+            <span class="next-desc">${escapeHtml(b.desc)}</span>
+            <span class="next-track"><span class="next-fill" style="width:${prog.pct}%"></span></span>
+          </span>
+          <span class="next-count">${formatNumber(prog.value)}/${formatNumber(prog.target)}</span>
+        `;
+        row.addEventListener("click", () => openBadgeSheet(b, ctx));
+        nearList.appendChild(row);
+      });
+    }
+
+    // The cupboard itself: one shelf per group.
+    const shelves = $("#cupboard-shelves");
+    shelves.innerHTML = "";
+    BADGE_GROUPS.forEach((group) => {
+      const groupBadges = BADGES.filter((b) => b.group === group.id);
+      const earnedHere = groupBadges.filter((b) => profile.badges[b.id]).length;
+
+      const shelf = document.createElement("div");
+      shelf.className = "shelf";
+      shelf.innerHTML = `
+        <div class="shelf-head">
+          <div class="shelf-plate">${escapeHtml(group.label)}</div>
+          <div class="shelf-tally">${earnedHere}/${groupBadges.length}</div>
+        </div>
+        <div class="shelf-note">${escapeHtml(group.note)}</div>
+        <div class="shelf-items"></div>
+        <div class="shelf-board"></div>
+      `;
+      const items = shelf.querySelector(".shelf-items");
+      groupBadges.forEach((b, i) => {
+        const t = trophyEl(b, ctx, !!profile.badges[b.id]);
+        t.style.setProperty("--stagger", (i * 40) + "ms");
+        items.appendChild(t);
+      });
+      shelves.appendChild(shelf);
+    });
   }
 
   // ---------------------------------------------------------------
@@ -527,7 +844,7 @@
       mastery: {},
     };
     upsertDeck(deck);
-    checkBadges();
+    celebrateBadges(checkBadges());
     $("#deck-title").value = "";
     openDeckSummary(deck);
   });
@@ -655,7 +972,7 @@
       lastAddedCardId = newCard.id;
     }
     upsertDeck(currentDeck);
-    checkBadges();
+    celebrateBadges(checkBadges());
     cancelEditCard();
     renderManageList();
   });
@@ -739,6 +1056,7 @@
 
   function gradeFlashCard(known) {
     const q = currentFlashQuestion();
+    profile.stats.cardsGraded++;
     gradeQuestion(currentDeck, q.id, known);
     upsertDeck(currentDeck);
     if (known) flash.known++; else flash.learning++;
@@ -798,12 +1116,15 @@
   function buildExtrasHtml(sessionXp, leveledUp, newLevel, newlyBadges) {
     const lines = [`<div class="result-line xp">+${sessionXp} XP earned</div>`];
     if (leveledUp) lines.push(`<div class="result-line levelup">Level up — now level ${newLevel}</div>`);
-    newlyBadges.forEach((b) => lines.push(`<div class="result-line badge">Badge earned — ${b.label}</div>`));
+    newlyBadges.forEach((b) => lines.push(
+      `<div class="result-line badge"><span class="result-badge-icon">${b.icon}</span>Badge earned — ${b.label}</div>`
+    ));
     return lines.join("");
   }
 
   function finishFlashcards() {
     const total = flash.known + flash.learning;
+    recordSession(total > 0 && flash.learning === 0);
     const bonus = addXp(XP_SESSION_BONUS);
     flash.sessionXp += XP_SESSION_BONUS;
     if (bonus.leveledUp) { flash.leveledUp = true; flash.newLevel = bonus.newLevel; }
@@ -832,7 +1153,7 @@
   const MAX_SAVED_ESSAY_CHARS = 6000;
 
   const essay = {
-    order: [], index: 0, strong: 0, weak: [], revealed: false,
+    order: [], index: 0, strong: 0, weak: [], revealed: false, lastWords: 0,
     sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
@@ -909,6 +1230,7 @@
     upsertDeck(currentDeck);
 
     essay.revealed = true;
+    essay.lastWords = words;
     $("#essay-model-text").textContent = q.answer;
     $("#essay-your-text").textContent = text;
     $("#essay-your-count").textContent = `(${words} word${words === 1 ? "" : "s"})`;
@@ -920,11 +1242,14 @@
 
   function gradeEssay(strong) {
     const q = currentEssayQuestion();
+    profile.stats.cardsGraded++;
     gradeQuestion(currentDeck, q.id, strong);
     upsertDeck(currentDeck);
     if (strong) essay.strong++; else essay.weak.push(q);
 
-    profile.flags.essaysWritten = (profile.flags.essaysWritten || 0) + 1;
+    profile.stats.essaysWritten++;
+    profile.stats.essayWords += essay.lastWords;
+    profile.stats.longestEssay = Math.max(profile.stats.longestEssay, essay.lastWords);
     saveProfile(profile);
 
     const xpGain = strong ? XP_KNOWN : XP_LEARNING;
@@ -943,6 +1268,7 @@
 
   function finishEssays() {
     const total = essay.order.length;
+    recordSession(total > 0 && essay.weak.length === 0);
     const bonus = addXp(XP_SESSION_BONUS);
     essay.sessionXp += XP_SESSION_BONUS;
     if (bonus.leveledUp) { essay.leveledUp = true; essay.newLevel = bonus.newLevel; }
@@ -982,6 +1308,27 @@
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }
+
+  // ---------------------------------------------------------------
+  // Tab bar + badge sheet wiring
+  // ---------------------------------------------------------------
+  function openTab(id) {
+    if (id === "screen-cupboard") renderCupboard(); else renderHome();
+    showScreen(id);
+  }
+
+  $all(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => openTab(tab.dataset.tab));
+  });
+
+  $("#cupboard-link").addEventListener("click", () => openTab("screen-cupboard"));
+  $("#badge-sheet-close").addEventListener("click", closeBadgeSheet);
+  $("#badge-sheet-backdrop").addEventListener("click", closeBadgeSheet);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#badge-sheet-wrap").classList.contains("hidden")) {
+      closeBadgeSheet();
+    }
+  });
 
   // ---------------------------------------------------------------
   // Celebration: lightweight canvas confetti

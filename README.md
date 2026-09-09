@@ -8,7 +8,8 @@ Write your own flashcards, then study them as quick-recall cards or as full writ
 - **Flashcards** — tap to flip, swipe (or use the buttons) to grade yourself.
 - **Essay practice** — write a long answer from memory, then compare it side by side with the card's model answer and grade yourself. Your last attempt and its word count are kept so you can see how you did before.
 - **Smart Review** — lightweight spaced repetition; cards you get right are spaced further out, cards you miss come right back.
-- **Streaks, XP/levels, and badges** for staying consistent.
+- **Streaks, XP and levels** for staying consistent.
+- **The Cupboard** — a second tab holding 27 badges across five shelves (First Steps, Consistency, Mastery, The Writing Desk, Curiosities). Locked badges stay on the shelf with a progress bar, and a "Nearly there" list surfaces the three you're closest to earning, alongside your running totals: cards mastered, essays written, words written, best streak, days studied and clean sweeps.
 - **Installable PWA** — add it to your home screen and it works offline.
 
 ## Running locally

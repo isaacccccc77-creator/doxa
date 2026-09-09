@@ -62,7 +62,7 @@
     </div>
   </header>
 
-  <main class="home-main">
+  <main class="home-main tabbed-main">
     <div class="ledger bento-grid">
       <div class="ledger-item bento-tile bento-tile-gold">
         <div class="ledger-label">Streak</div>
@@ -80,6 +80,13 @@
     </div>
 
     <div id="badges-wrap" class="hidden">
+      <button id="cupboard-link" class="strip-head">
+        <span class="strip-head-text">
+          <span class="strip-title">Your cupboard</span>
+          <span class="strip-sub" id="badges-count">0 badges</span>
+        </span>
+        <span class="btn-arrow">→</span>
+      </button>
       <div id="badges-row" class="badges-row"></div>
     </div>
 
@@ -110,6 +117,49 @@
       <div id="saved-decks" class="deck-list"></div>
     </div>
   </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆</span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
+</section>
+
+<!-- CUPBOARD: badges + accomplishments -->
+<section id="screen-cupboard" class="screen">
+  <header class="topbar home-topbar">
+    <div id="cupboard-avatar" class="avatar-bubble" aria-hidden="true"></div>
+    <div class="greeting-block">
+      <div class="greeting-text" id="cupboard-owner">Your cupboard</div>
+      <div class="greeting-sub" id="cupboard-count">0 of 0 badges on the shelf</div>
+    </div>
+  </header>
+
+  <main class="home-main tabbed-main">
+    <div class="cupboard-progress">
+      <div class="xp-rule"><div id="cupboard-fill" class="xp-rule-fill"></div></div>
+    </div>
+
+    <div id="cupboard-stats" class="bento-grid stat-grid"></div>
+
+    <div id="cupboard-next-wrap" class="hidden">
+      <h2 class="section-title">Nearly there</h2>
+      <div id="cupboard-next" class="next-list"></div>
+    </div>
+
+    <h2 class="section-title">The cupboard</h2>
+    <div id="cupboard-shelves" class="cupboard"></div>
+  </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆</span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
 </section>
 
 <!-- DECK SUMMARY -->
@@ -261,6 +311,21 @@
     </div>
   </main>
 </section>
+
+<!-- BADGE DETAIL SHEET -->
+<div id="badge-sheet-wrap" class="sheet-wrap hidden">
+  <div class="sheet-backdrop" id="badge-sheet-backdrop"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="badge-sheet-name">
+    <div class="sheet-grip"></div>
+    <div id="badge-sheet-disc" class="trophy-disc sheet-disc"></div>
+    <div class="sheet-shelf" id="badge-sheet-shelf"></div>
+    <div class="sheet-name" id="badge-sheet-name"></div>
+    <div class="sheet-desc" id="badge-sheet-desc"></div>
+    <div class="sheet-status" id="badge-sheet-status"></div>
+    <div class="sheet-bar" id="badge-sheet-bar"><div id="badge-sheet-fill" class="sheet-fill"></div></div>
+    <button id="badge-sheet-close" class="btn btn-primary btn-full">Close</button>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
