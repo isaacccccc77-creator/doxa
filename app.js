@@ -831,8 +831,23 @@
     sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
+  // Answers from every other deck, used to widen the pool of wrong
+  // options so a small deck isn't limited to its own handful of cards.
+  function answersFromOtherDecks(deck) {
+    const out = [];
+    for (const d of loadDecks()) {
+      if (!d || d.id === deck.id) continue;
+      for (const q of d.questions) {
+        if (q && q.answerShort) out.push(q.answerShort);
+      }
+    }
+    return out;
+  }
+
   function startMcq(questions) {
-    if (currentDeck) QuizGen.rebuildChoices(currentDeck.questions);
+    if (currentDeck) {
+      QuizGen.rebuildChoices(currentDeck.questions, answersFromOtherDecks(currentDeck));
+    }
     mcq.order = questions.slice();
     shuffleArr(mcq.order);
     mcq.index = 0;

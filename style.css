@@ -374,18 +374,21 @@ textarea.textarea-small { min-height: 70px; }
   .deck-card:hover { border-color: var(--gold-dim); transform: translateY(-4px); box-shadow: 0 16px 32px rgba(36, 28, 16, 0.16); }
 }
 
+/* Announces itself once when it first appears, then sits still — a
+   looping pulse on a button you're reading past is just distracting. */
 .finish-deck-btn {
   background: linear-gradient(180deg, #5c8154, var(--sage));
   color: #fff;
   font-weight: 700;
-  animation: finish-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 6px 16px rgba(63, 132, 89, 0.22);
+  animation: finish-appear 0.4s var(--bounce);
 }
 @media (prefers-reduced-motion: reduce) {
   .finish-deck-btn { animation: none; }
 }
-@keyframes finish-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(76, 107, 71, 0.45); transform: scale(1); }
-  50% { box-shadow: 0 0 0 14px rgba(76, 107, 71, 0); transform: scale(1.025); }
+@keyframes finish-appear {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 
 .mode-choice { display: flex; flex-direction: column; gap: 12px; width: 100%; }
