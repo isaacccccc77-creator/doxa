@@ -214,40 +214,6 @@ button { font-family: inherit; }
 
 /* ---------------- Badges, trophies and the cupboard ---------------- */
 
-/* Home-screen teaser strip: recent badges + the next one within reach. */
-.strip-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 0 2px 10px;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-}
-.strip-head-text { display: flex; flex-direction: column; gap: 2px; }
-.strip-title {
-  font-family: var(--serif);
-  font-size: 1.02rem;
-  font-weight: 560;
-  color: var(--ink);
-}
-.strip-sub { font-size: 0.72rem; color: var(--taupe); letter-spacing: 0.01em; }
-.strip-head .btn-arrow { color: var(--gold); font-size: 1.1rem; }
-
-.badges-row {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  padding: 4px 2px 10px;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.badges-row::-webkit-scrollbar { display: none; }
-
 /* A single trophy: a coloured disc with an emoji, and its name beneath. */
 .trophy {
   flex-shrink: 0;

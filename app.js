@@ -483,30 +483,7 @@
       }
     }
     if (newly.length) saveProfile(profile);
-    renderBadgesRow();
     return newly;
-  }
-
-  // A teaser strip on the home screen: what you've most recently earned,
-  // plus the one badge you're closest to. The full set lives in the Cupboard.
-  function renderBadgesRow() {
-    const ctx = badgeContext();
-    const earnedIds = Object.keys(profile.badges);
-    const wrap = $("#badges-wrap");
-    if (ctx.deckCount === 0 && earnedIds.length === 0) { wrap.classList.add("hidden"); return; }
-    wrap.classList.remove("hidden");
-
-    $("#badges-count").textContent = `${earnedIds.length} of ${BADGES.length}`;
-
-    const earned = BADGES.filter((b) => profile.badges[b.id])
-      .sort((a, b) => profile.badges[b.id] - profile.badges[a.id]);
-    const next = nextUpBadges(ctx, 1)[0];
-
-    const row = $("#badges-row");
-    row.innerHTML = "";
-    earned.slice(0, 5).forEach((b) => row.appendChild(trophyEl(b, ctx, true)));
-    if (next) row.appendChild(trophyEl(next, ctx, false));
-    if (!earned.length && !next) row.appendChild(trophyEl(BADGES[0], ctx, false));
   }
 
   // Badges won outside a study session have no results screen to land on,
@@ -763,7 +740,6 @@
   function renderHome() {
     renderProfileHeader();
     renderHeaderChips();
-    renderBadgesRow();
     renderReminderUI();
     const decks = loadDecks();
     const wrap = $("#saved-decks-wrap");
@@ -1321,7 +1297,6 @@
     tab.addEventListener("click", () => openTab(tab.dataset.tab));
   });
 
-  $("#cupboard-link").addEventListener("click", () => openTab("screen-cupboard"));
   $("#badge-sheet-close").addEventListener("click", closeBadgeSheet);
   $("#badge-sheet-backdrop").addEventListener("click", closeBadgeSheet);
   document.addEventListener("keydown", (e) => {
