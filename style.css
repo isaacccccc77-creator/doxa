@@ -136,7 +136,7 @@ button { font-family: inherit; }
 }
 .icon-btn:active { opacity: 0.7; transform: scale(0.9); }
 
-.home-main, .center-main, .flash-main, .mcq-main {
+.home-main, .center-main, .flash-main, .essay-main {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -310,6 +310,7 @@ input[type="text"], textarea {
 input[type="text"]:focus, textarea:focus { border-color: var(--gold-dim); }
 textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
 textarea.textarea-small { min-height: 70px; }
+textarea.textarea-medium { min-height: 150px; }
 .hint { font-size: 0.78rem; color: var(--taupe); margin: 10px 2px 16px; line-height: 1.5; }
 
 .btn {
@@ -675,10 +676,20 @@ textarea.textarea-small { min-height: 70px; }
   .btn-yes:hover { background: rgba(76, 107, 71, 0.08); }
 }
 
-/* MCQ */
-.mcq-score { font-size: 0.78rem; color: var(--taupe); white-space: nowrap; }
-.mcq-score b { color: var(--gold); font-family: var(--serif); }
-.mcq-question {
+/* Essay practice */
+/* The word count and progress stay pinned while a long answer scrolls. */
+.essay-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(250, 243, 230, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.essay-count { font-size: 0.78rem; color: var(--taupe); white-space: nowrap; }
+.essay-count b { color: var(--gold); font-family: var(--serif); }
+.essay-question {
   font-family: var(--serif);
   font-size: 1.2rem;
   font-weight: 500;
@@ -688,41 +699,52 @@ textarea.textarea-small { min-height: 70px; }
   border-radius: var(--radius);
   padding: 22px;
   margin-top: 4px;
+  box-shadow: 0 8px 20px rgba(36, 28, 16, 0.06);
 }
-.mcq-options { display: flex; flex-direction: column; gap: 10px; }
-.mcq-option {
-  text-align: left;
-  background: transparent;
+.essay-input {
+  width: 100%;
+  min-height: 260px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+#essay-write-stage, #essay-review-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#essay-review-stage { gap: 14px; animation: screen-in 0.3s var(--bounce); }
+@media (prefers-reduced-motion: reduce) {
+  #essay-review-stage { animation: none; }
+}
+.essay-block {
   border: 1px solid var(--hair);
   border-left: 3px solid var(--hair);
-  color: var(--ink);
-  border-radius: 8px;
-  padding: 14px 16px;
-  font-size: 0.95rem;
-  font-family: var(--sans);
-  cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: 0 6px 16px rgba(36, 28, 16, 0.05);
 }
-.mcq-option:active { opacity: 0.8; transform: scale(0.98); }
-.mcq-option.correct { border-left-color: var(--sage); color: var(--sage); animation: option-pop 0.3s ease; }
-.mcq-option.wrong { border-left-color: var(--oxblood); color: var(--oxblood); animation: option-shake 0.3s ease; }
-.mcq-option:disabled { opacity: 0.9; }
-@media (hover: hover) and (pointer: fine) {
-  .mcq-option:not(:disabled):hover { border-color: var(--gold-dim); background: var(--panel-2); }
+.essay-block-model { border-left-color: var(--sage); }
+.essay-block-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--taupe);
+  margin-bottom: 8px;
 }
-@media (prefers-reduced-motion: reduce) {
-  .mcq-option.correct, .mcq-option.wrong { animation: none; }
+.essay-block-count { letter-spacing: 0; text-transform: none; }
+.essay-block-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 0.92rem;
 }
-@keyframes option-pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.03); }
-  100% { transform: scale(1); }
+.essay-grade-label {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--taupe);
+  margin-top: 4px;
 }
-@keyframes option-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
-}
+.essay-grade-row { display: flex; gap: 12px; }
+.essay-grade-row .btn { flex: 1; }
 
 /* Results */
 .results-extras { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -856,5 +878,5 @@ textarea.textarea-small { min-height: 70px; }
 .greeting-sub { font-size: 0.8rem; color: var(--taupe); margin-top: 2px; }
 
 @media (min-width: 640px) {
-  .home-main, .center-main, .flash-main, .mcq-main { padding: 0 28px 36px; }
+  .home-main, .center-main, .flash-main, .essay-main { padding: 0 28px 36px; }
 }

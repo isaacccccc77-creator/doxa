@@ -132,9 +132,9 @@
         <span class="mode-tile-icon">🗂️</span>
         <span class="mode-tile-label">Flashcards</span>
       </button>
-      <button id="start-mcq" class="btn bento-tile bento-tile-coral mode-tile">
-        <span class="mode-tile-icon">✅</span>
-        <span class="mode-tile-label">Quiz</span>
+      <button id="start-essay" class="btn bento-tile bento-tile-coral mode-tile">
+        <span class="mode-tile-icon">📝</span>
+        <span class="mode-tile-label">Essay</span>
       </button>
       <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile mode-tile-wide">
         <span class="mode-tile-icon">✏️</span>
@@ -156,8 +156,8 @@
       <label class="field-label" for="card-front">Front <span class="optional">(question)</span></label>
       <textarea id="card-front" class="textarea-small" placeholder="e.g. What is the powerhouse of the cell?"></textarea>
 
-      <label class="field-label" for="card-back">Back <span class="optional">(answer)</span></label>
-      <textarea id="card-back" class="textarea-small" placeholder="e.g. The mitochondrion"></textarea>
+      <label class="field-label" for="card-back">Back <span class="optional">(answer — short or essay-length)</span></label>
+      <textarea id="card-back" class="textarea-medium" placeholder="e.g. The mitochondrion&#10;&#10;Or write a full model answer here — Essay mode will show it back to you to compare against."></textarea>
 
       <button id="card-save-btn" class="btn btn-primary btn-full">Add card</button>
       <button id="card-cancel-btn" class="btn-text hidden">Cancel edit</button>
@@ -208,17 +208,39 @@
   </main>
 </section>
 
-<!-- MULTIPLE CHOICE -->
-<section id="screen-mcq" class="screen">
-  <header class="topbar">
+<!-- ESSAY PRACTICE -->
+<section id="screen-essay" class="screen">
+  <header class="topbar essay-topbar">
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Exit">←</button>
-    <div class="progress-track"><div id="mcq-progress" class="progress-fill"></div></div>
-    <div class="mcq-score">Score <b id="mcq-score">0</b>/<span id="mcq-total">0</span></div>
+    <div class="progress-track"><div id="essay-progress" class="progress-fill"></div></div>
+    <div class="essay-count"><b id="essay-word-count">0</b> words</div>
   </header>
-  <main class="mcq-main">
-    <div class="mcq-question" id="mcq-question"></div>
-    <div id="mcq-options" class="mcq-options"></div>
-    <button id="mcq-next" class="btn btn-primary btn-full hidden">Next</button>
+  <main class="essay-main">
+    <div class="essay-question" id="essay-question"></div>
+
+    <div id="essay-write-stage">
+      <textarea id="essay-input" class="essay-input" placeholder="Write your full answer here — take as much space as you need."></textarea>
+      <div class="hint" id="essay-last-attempt">Write from memory — there's no word limit.</div>
+      <button id="essay-reveal-btn" class="btn btn-primary btn-full btn-arrow-cta">
+        <span>Compare with model answer</span><span class="btn-arrow">→</span>
+      </button>
+    </div>
+
+    <div id="essay-review-stage" class="hidden">
+      <div class="essay-block essay-block-model">
+        <div class="essay-block-label">Model answer</div>
+        <div class="essay-block-text" id="essay-model-text"></div>
+      </div>
+      <div class="essay-block">
+        <div class="essay-block-label">Your answer <span id="essay-your-count" class="essay-block-count"></span></div>
+        <div class="essay-block-text" id="essay-your-text"></div>
+      </div>
+      <div class="essay-grade-label">How close were you?</div>
+      <div class="essay-grade-row">
+        <button id="essay-again" class="btn btn-secondary">Needs work</button>
+        <button id="essay-good" class="btn btn-primary">Nailed it</button>
+      </div>
+    </div>
   </main>
 </section>
 
@@ -229,18 +251,17 @@
     <p class="summary-sub" id="results-sub">Nice work!</p>
     <div id="results-extras" class="results-extras"></div>
     <div id="missed-wrap" class="missed-wrap hidden">
-      <h2 class="section-title">Review misses</h2>
+      <h2 class="section-title" id="missed-title">Review misses</h2>
       <div id="missed-list" class="missed-list"></div>
     </div>
     <div class="mode-choice">
       <button id="results-retry-missed" class="btn btn-secondary btn-full hidden">Retry missed only</button>
-      <button id="results-retry" class="btn btn-secondary btn-full">Retake quiz</button>
+      <button id="results-retry" class="btn btn-secondary btn-full">Study again</button>
       <button id="results-home" class="btn btn-primary btn-full">Back to decks</button>
     </div>
   </main>
 </section>
 
-<script src="quizgen.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

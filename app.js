@@ -7,8 +7,6 @@
 
   const XP_KNOWN = 8;
   const XP_LEARNING = 2;
-  const XP_CORRECT = 10;
-  const XP_INCORRECT = 2;
   const XP_SESSION_BONUS = 20;
   const XP_STREAK_BONUS = 15;
   const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
@@ -18,7 +16,7 @@
     { id: "streak_3", icon: "3", label: "3-Day Streak", check: (p) => (p.streak.best || 0) >= 3 },
     { id: "streak_7", icon: "7", label: "7-Day Streak", check: (p) => (p.streak.best || 0) >= 7 },
     { id: "cards_50", icon: "50", label: "50 Mastered", check: (p, decks) => totalKnownAcrossDecks(decks) >= 50 },
-    { id: "quiz_ace", icon: "A", label: "Perfect Quiz", check: (p) => !!(p.flags && p.flags.perfectQuiz) },
+    { id: "essayist", icon: "E", label: "Essayist", check: (p) => ((p.flags && p.flags.essaysWritten) || 0) >= 5 },
   ];
 
   const AVATAR_OPTIONS = [
@@ -372,6 +370,7 @@
   // ---------------------------------------------------------------
   function migrateDeckMastery(deck) {
     if (!deck.mastery) deck.mastery = {};
+    if (!deck.essays) deck.essays = {};
     for (const qid in deck.mastery) {
       const m = deck.mastery[qid];
       if (typeof m === "string") {
@@ -491,7 +490,7 @@
     $("#summary-title").textContent = deck.title;
     $("#summary-count").textContent = deck.questions.length;
 
-    const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-mcq")];
+    const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-essay")];
     if (deck.questions.length === 0) {
       $("#summary-sub").textContent = "This deck is empty";
       $("#due-callout").classList.add("hidden");
@@ -619,6 +618,7 @@
   function deleteCard(id) {
     currentDeck.questions = currentDeck.questions.filter((q) => q.id !== id);
     delete currentDeck.mastery[id];
+    if (currentDeck.essays) delete currentDeck.essays[id];
     upsertDeck(currentDeck);
     if (editingCardId === id) cancelEditCard();
     renderManageList();
@@ -650,7 +650,6 @@
         answer: back,
         answerShort: back,
         sourceSentence: "",
-        choices: [],
       };
       currentDeck.questions.push(newCard);
       lastAddedCardId = newCard.id;
@@ -818,152 +817,168 @@
 
     if (flash.leveledUp || newlyBadges.length) { burstConfetti(); vibrate([15, 40, 15]); }
 
+    $("#results-retry").textContent = "Study these again";
     $("#results-retry").onclick = () => beginFlashcardsSession(flash.sourceQuestions);
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }
 
   // ---------------------------------------------------------------
-  // MULTIPLE CHOICE
+  // ESSAY PRACTICE: write a long answer from memory, then compare it
+  // against the card's model answer and grade yourself. Same
+  // spaced-repetition scheduling as flashcards — just a much longer
+  // answer, which is the part exams actually test.
   // ---------------------------------------------------------------
-  const mcq = {
-    order: [], index: 0, score: 0, missed: [], answered: false,
+  const MAX_SAVED_ESSAY_CHARS = 6000;
+
+  const essay = {
+    order: [], index: 0, strong: 0, weak: [], revealed: false,
     sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
-  // Answers from every other deck, used to widen the pool of wrong
-  // options so a small deck isn't limited to its own handful of cards.
-  function answersFromOtherDecks(deck) {
-    const out = [];
-    for (const d of loadDecks()) {
-      if (!d || d.id === deck.id) continue;
-      for (const q of d.questions) {
-        if (q && q.answerShort) out.push(q.answerShort);
-      }
-    }
-    return out;
+  function countWords(text) {
+    const trimmed = text.trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
   }
 
-  function startMcq(questions) {
-    if (currentDeck) {
-      QuizGen.rebuildChoices(currentDeck.questions, answersFromOtherDecks(currentDeck));
-    }
-    mcq.order = questions.slice();
-    shuffleArr(mcq.order);
-    mcq.index = 0;
-    mcq.score = 0;
-    mcq.missed = [];
-    mcq.answered = false;
-    mcq.sessionXp = 0;
-    mcq.leveledUp = false;
-    mcq.newLevel = null;
-    $("#mcq-total").textContent = mcq.order.length;
-    renderMcqQuestion();
-    showScreen("screen-mcq");
+  function currentEssayQuestion() {
+    return essay.order[essay.index];
   }
 
-  $("#start-mcq").addEventListener("click", () => {
+  function beginEssaySession(questions) {
+    essay.order = questions.slice();
+    shuffleArr(essay.order);
+    essay.index = 0;
+    essay.strong = 0;
+    essay.weak = [];
+    essay.sessionXp = 0;
+    essay.leveledUp = false;
+    essay.newLevel = null;
+    renderEssayQuestion();
+    showScreen("screen-essay");
+  }
+
+  $("#start-essay").addEventListener("click", () => {
     if (!currentDeck) return;
-    startMcq(currentDeck.questions);
+    beginEssaySession(currentDeck.questions);
   });
 
-  function renderMcqQuestion() {
-    if (mcq.index >= mcq.order.length) {
-      finishMcq();
+  function renderEssayQuestion() {
+    if (essay.index >= essay.order.length) {
+      finishEssays();
       return;
     }
-    mcq.answered = false;
-    const q = mcq.order[mcq.index];
-    $("#mcq-question").textContent = q.type === "cloze" ? `Fill in the blank:\n${q.prompt}` : q.prompt;
-    $("#mcq-score").textContent = mcq.score;
-    $("#mcq-progress").style.width = Math.round((mcq.index / mcq.order.length) * 100) + "%";
-    $("#mcq-next").classList.add("hidden");
+    const q = currentEssayQuestion();
+    essay.revealed = false;
+    $("#essay-question").textContent = q.prompt;
+    $("#essay-input").value = "";
+    $("#essay-word-count").textContent = "0";
+    $("#essay-write-stage").classList.remove("hidden");
+    $("#essay-review-stage").classList.add("hidden");
+    $("#essay-progress").style.width =
+      Math.round((essay.index / essay.order.length) * 100) + "%";
 
-    const optionsWrap = $("#mcq-options");
-    optionsWrap.innerHTML = "";
-    q.choices.forEach((choice) => {
-      const btn = document.createElement("button");
-      btn.className = "mcq-option";
-      btn.textContent = choice;
-      btn.addEventListener("click", () => selectMcqOption(btn, choice, q));
-      optionsWrap.appendChild(btn);
-    });
+    window.scrollTo(0, 0);
+
+    const previous = currentDeck.essays && currentDeck.essays[q.id];
+    $("#essay-last-attempt").textContent = previous
+      ? `Last attempt: ${previous.words} word${previous.words === 1 ? "" : "s"}, ${timeAgo(previous.at)}.`
+      : "Write from memory — there's no word limit.";
   }
 
-  function selectMcqOption(btn, choice, q) {
-    if (mcq.answered) return;
-    mcq.answered = true;
-    const correct = choice.toLowerCase() === q.answerShort.toLowerCase();
-    $all(".mcq-option").forEach((b) => {
-      b.disabled = true;
-      if (b.textContent.toLowerCase() === q.answerShort.toLowerCase()) b.classList.add("correct");
-    });
-
-    if (currentDeck) gradeQuestion(currentDeck, q.id, correct);
-    if (currentDeck) upsertDeck(currentDeck);
-
-    if (!correct) {
-      btn.classList.add("wrong");
-      mcq.missed.push(q);
-    } else {
-      mcq.score++;
-    }
-
-    const xpGain = correct ? XP_CORRECT : XP_INCORRECT;
-    const xpResult = addXp(xpGain);
-    mcq.sessionXp += xpGain;
-    if (xpResult.leveledUp) { mcq.leveledUp = true; mcq.newLevel = xpResult.newLevel; }
-    touchStreak();
-
-    vibrate(correct ? 12 : [10, 40, 10]);
-    $("#mcq-score").textContent = mcq.score;
-    $("#mcq-next").classList.remove("hidden");
-  }
-
-  $("#mcq-next").addEventListener("click", () => {
-    mcq.index++;
-    renderMcqQuestion();
+  $("#essay-input").addEventListener("input", () => {
+    $("#essay-word-count").textContent = countWords($("#essay-input").value);
   });
 
-  function finishMcq() {
-    const total = mcq.order.length;
-    const pct = total ? mcq.score / total : 0;
-    const bonus = addXp(XP_SESSION_BONUS);
-    mcq.sessionXp += XP_SESSION_BONUS;
-    if (bonus.leveledUp) { mcq.leveledUp = true; mcq.newLevel = bonus.newLevel; }
-
-    if (total >= 4 && pct === 1 && !profile.flags.perfectQuiz) {
-      profile.flags.perfectQuiz = true;
-      saveProfile(profile);
+  $("#essay-reveal-btn").addEventListener("click", () => {
+    const text = $("#essay-input").value.trim();
+    if (!text) {
+      toast("Write your answer first — even a rough one.");
+      return;
     }
+    const q = currentEssayQuestion();
+    const words = countWords(text);
+
+    // Keep the attempt so the next round can show how it compared.
+    currentDeck.essays = currentDeck.essays || {};
+    currentDeck.essays[q.id] = {
+      text: text.slice(0, MAX_SAVED_ESSAY_CHARS),
+      words,
+      at: Date.now(),
+    };
+    upsertDeck(currentDeck);
+
+    essay.revealed = true;
+    $("#essay-model-text").textContent = q.answer;
+    $("#essay-your-text").textContent = text;
+    $("#essay-your-count").textContent = `(${words} word${words === 1 ? "" : "s"})`;
+    $("#essay-write-stage").classList.add("hidden");
+    $("#essay-review-stage").classList.remove("hidden");
+    window.scrollTo(0, 0);
+    vibrate(8);
+  });
+
+  function gradeEssay(strong) {
+    const q = currentEssayQuestion();
+    gradeQuestion(currentDeck, q.id, strong);
+    upsertDeck(currentDeck);
+    if (strong) essay.strong++; else essay.weak.push(q);
+
+    profile.flags.essaysWritten = (profile.flags.essaysWritten || 0) + 1;
+    saveProfile(profile);
+
+    const xpGain = strong ? XP_KNOWN : XP_LEARNING;
+    const xpResult = addXp(xpGain);
+    essay.sessionXp += xpGain;
+    if (xpResult.leveledUp) { essay.leveledUp = true; essay.newLevel = xpResult.newLevel; }
+    touchStreak();
+    vibrate(strong ? [10] : [10, 40, 10]);
+
+    essay.index++;
+    renderEssayQuestion();
+  }
+
+  $("#essay-good").addEventListener("click", () => gradeEssay(true));
+  $("#essay-again").addEventListener("click", () => gradeEssay(false));
+
+  function finishEssays() {
+    const total = essay.order.length;
+    const bonus = addXp(XP_SESSION_BONUS);
+    essay.sessionXp += XP_SESSION_BONUS;
+    if (bonus.leveledUp) { essay.leveledUp = true; essay.newLevel = bonus.newLevel; }
     const newlyBadges = checkBadges();
 
-    $("#results-score").textContent = `${mcq.score}/${total}`;
-    $("#results-sub").textContent = pct >= 0.8 ? "Excellent work!" : pct >= 0.5 ? "Good progress — keep going." : "Review and try again.";
-    $("#results-extras").innerHTML = buildExtrasHtml(mcq.sessionXp, mcq.leveledUp, mcq.newLevel, newlyBadges);
+    $("#results-score").textContent = `${essay.strong}/${total}`;
+    $("#results-sub").textContent = `${total} essay${total === 1 ? "" : "s"} written · ${essay.weak.length} to revisit`;
+    $("#results-extras").innerHTML = buildExtrasHtml(essay.sessionXp, essay.leveledUp, essay.newLevel, newlyBadges);
 
     const missedWrap = $("#missed-wrap");
     const missedList = $("#missed-list");
+    $("#missed-title").textContent = "Worth another go";
     missedList.innerHTML = "";
-    if (mcq.missed.length > 0) {
+    if (essay.weak.length > 0) {
       missedWrap.classList.remove("hidden");
-      mcq.missed.forEach((q) => {
+      essay.weak.forEach((q) => {
         const item = document.createElement("div");
         item.className = "missed-item";
-        item.innerHTML = `<div class="missed-q">${escapeHtml(q.prompt)}</div>
-                           <div class="missed-a">Answer: <b>${escapeHtml(q.answerShort)}</b></div>`;
+        item.innerHTML = `<div class="missed-q">${escapeHtml(q.prompt)}</div>`;
         missedList.appendChild(item);
       });
+      $("#results-retry-missed").textContent = "Rewrite these only";
       $("#results-retry-missed").classList.remove("hidden");
-      $("#results-retry-missed").onclick = () => startMcq(mcq.missed);
+      $("#results-retry-missed").onclick = () => beginEssaySession(essay.weak);
     } else {
       missedWrap.classList.add("hidden");
       $("#results-retry-missed").classList.add("hidden");
     }
 
-    if (pct === 1 || mcq.leveledUp || newlyBadges.length) { burstConfetti(); vibrate([15, 40, 15]); }
+    if (essay.weak.length === 0 || essay.leveledUp || newlyBadges.length) {
+      burstConfetti();
+      vibrate([15, 40, 15]);
+    }
 
-    $("#results-retry").onclick = () => startMcq(currentDeck.questions);
+    $("#results-retry").textContent = "Write the whole deck again";
+    $("#results-retry").onclick = () => beginEssaySession(currentDeck.questions);
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }
