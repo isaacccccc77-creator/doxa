@@ -117,7 +117,7 @@
       <span class="tab-icon">📖</span><span class="tab-label">Study</span>
     </button>
     <button class="tab" data-tab="screen-cupboard">
-      <span class="tab-icon">🏆</span><span class="tab-label">Cupboard</span>
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
   </nav>
 </section>
@@ -133,8 +133,15 @@
   </header>
 
   <main class="home-main tabbed-main">
-    <div class="cupboard-progress">
-      <div class="xp-rule"><div id="cupboard-fill" class="xp-rule-fill"></div></div>
+    <div class="ring-hero">
+      <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring-track" cx="60" cy="60" r="52" />
+        <circle id="cupboard-ring" class="ring-fill" cx="60" cy="60" r="52" />
+      </svg>
+      <div class="ring-label">
+        <div class="ring-num"><span id="ring-earned">0</span><span class="ring-of">/<span id="ring-total">0</span></span></div>
+        <div class="ring-cap">badges</div>
+      </div>
     </div>
 
     <div id="cupboard-stats" class="bento-grid stat-grid"></div>
@@ -152,7 +159,7 @@
       <span class="tab-icon">📖</span><span class="tab-label">Study</span>
     </button>
     <button class="tab" data-tab="screen-cupboard">
-      <span class="tab-icon">🏆</span><span class="tab-label">Cupboard</span>
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
   </nav>
 </section>

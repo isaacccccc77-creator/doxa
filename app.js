@@ -210,6 +210,9 @@
     st.weekendSessions = st.weekendSessions || 0;
     st.weekendDate = st.weekendDate || null;
     st.comebacks = st.comebacks || 0;
+    // Badges you've earned but not yet seen in the Cupboard. They get the
+    // reveal, and put a pip on the tab until you go and look.
+    p.badgeSeen = p.badgeSeen || {};
     p.name = p.name || "";
     p.avatarEmoji = p.avatarEmoji || AVATAR_OPTIONS[0].emoji;
     p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
@@ -521,6 +524,43 @@
   // THE CUPBOARD: every badge on a shelf, earned ones lit up and locked
   // ones sitting there in outline so you can see what's still to come.
   // ---------------------------------------------------------------
+  const reduceMotion = window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : { matches: false };
+
+  function unseenBadgeIds() {
+    return BADGES
+      .filter((b) => profile.badges[b.id] && !profile.badgeSeen[b.id])
+      .map((b) => b.id);
+  }
+
+  function updateCupboardPip() {
+    const any = unseenBadgeIds().length > 0;
+    $all(".tab-pip").forEach((pip) => pip.classList.toggle("hidden", !any));
+  }
+
+  // Numbers that tick up to their value, the way a scoreboard does.
+  function countUp(el, target) {
+    const value = Number(target) || 0;
+    if (reduceMotion.matches || value <= 0) { el.textContent = formatNumber(value); return; }
+    const duration = 620;
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = formatNumber(Math.round(value * eased));
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function playOnce(el, className) {
+    el.classList.remove(className);
+    // Force a reflow so re-adding the class restarts the animation.
+    void el.offsetWidth;
+    el.classList.add(className);
+  }
+
   function trophyEl(badge, ctx, earned) {
     const el = document.createElement("button");
     el.type = "button";
@@ -530,7 +570,13 @@
       <span class="trophy-disc"><span class="trophy-icon">${badge.icon}</span></span>
       <span class="trophy-name">${escapeHtml(badge.label)}</span>
     `;
-    el.addEventListener("click", () => openBadgeSheet(badge, ctx));
+    el.addEventListener("click", () => {
+      if (!reduceMotion.matches) {
+        playOnce(el, earned ? "shine" : "nudge");
+        vibrate(earned ? 10 : [8, 30, 8]);
+      }
+      openBadgeSheet(badge, ctx);
+    });
     return el;
   }
 
@@ -585,23 +631,43 @@
       ? `${profile.name}'s cupboard`
       : "Your cupboard";
     $("#cupboard-count").textContent = `${earnedCount} of ${BADGES.length} badges on the shelf`;
-    $("#cupboard-fill").style.width = Math.round((earnedCount / BADGES.length) * 100) + "%";
     setBubbleAvatar($("#cupboard-avatar"), profile.avatarEmoji, profile.avatarBg, profile.avatarPhoto);
 
+    // The ring draws itself up to your completion each time you arrive.
+    const ring = $("#cupboard-ring");
+    const circumference = 2 * Math.PI * 52;
+    ring.style.strokeDasharray = circumference;
+    const target = circumference * (1 - earnedCount / BADGES.length);
+    if (reduceMotion.matches) {
+      ring.style.transition = "none";
+      ring.style.strokeDashoffset = target;
+    } else {
+      ring.style.transition = "none";
+      ring.style.strokeDashoffset = circumference;
+      requestAnimationFrame(() => {
+        ring.style.transition = "stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)";
+        ring.style.strokeDashoffset = target;
+      });
+    }
+    $("#ring-total").textContent = BADGES.length;
+    countUp($("#ring-earned"), earnedCount);
+
     const tiles = [
-      { label: "Cards mastered", value: formatNumber(ctx.mastered), tone: "teal" },
-      { label: "Essays written", value: formatNumber(st.essaysWritten), tone: "coral" },
-      { label: "Words written", value: formatNumber(st.essayWords), tone: "violet" },
-      { label: "Best streak", value: formatNumber(ctx.bestStreak), unit: ctx.bestStreak === 1 ? "day" : "days", tone: "gold" },
-      { label: "Days studied", value: formatNumber(st.studyDays), tone: "sage" },
-      { label: "Clean sweeps", value: formatNumber(st.perfectSessions), tone: "teal" },
+      { label: "Cards mastered", raw: ctx.mastered, tone: "teal" },
+      { label: "Essays written", raw: st.essaysWritten, tone: "coral" },
+      { label: "Words written", raw: st.essayWords, tone: "violet" },
+      { label: "Best streak", raw: ctx.bestStreak, unit: ctx.bestStreak === 1 ? "day" : "days", tone: "gold" },
+      { label: "Days studied", raw: st.studyDays, tone: "sage" },
+      { label: "Clean sweeps", raw: st.perfectSessions, tone: "teal" },
     ];
     $("#cupboard-stats").innerHTML = tiles.map((t) => `
       <div class="bento-tile bento-tile-${t.tone} stat-tile">
         <div class="ledger-label">${t.label}</div>
-        <div class="ledger-value">${t.value}${t.unit ? `<small>${t.unit}</small>` : ""}</div>
+        <div class="ledger-value"><span class="tick" data-to="${t.raw}">0</span>${t.unit ? `<small>${t.unit}</small>` : ""}</div>
       </div>
     `).join("");
+
+    $all("#cupboard-stats .tick").forEach((el) => countUp(el, el.dataset.to));
 
     // Nearly there — the three closest locked badges, with progress.
     const near = nextUpBadges(ctx, 3);
@@ -631,6 +697,9 @@
       });
     }
 
+    // Badges won since you last looked. They get the reveal, once.
+    const fresh = unseenBadgeIds();
+
     // The cupboard itself: one shelf per group.
     const shelves = $("#cupboard-shelves");
     shelves.innerHTML = "";
@@ -652,11 +721,65 @@
       const items = shelf.querySelector(".shelf-items");
       groupBadges.forEach((b, i) => {
         const t = trophyEl(b, ctx, !!profile.badges[b.id]);
-        t.style.setProperty("--stagger", (i * 40) + "ms");
+        t.style.setProperty("--stagger", (i * 55) + "ms");
+        if (fresh.indexOf(b.id) !== -1) {
+          t.classList.add("just-earned");
+          t.insertAdjacentHTML("beforeend", '<span class="trophy-new">NEW</span>');
+        }
         items.appendChild(t);
       });
       shelves.appendChild(shelf);
     });
+
+    revealShelvesOnScroll();
+    if (fresh.length) celebrateNewBadges(fresh);
+    updateCupboardPip();
+  }
+
+  // Each shelf's trophies drop into place as that shelf scrolls into view,
+  // rather than the whole cupboard animating at once behind the fold.
+  function revealShelvesOnScroll() {
+    const rows = $all("#cupboard-shelves .shelf-items");
+    if (reduceMotion.matches || typeof IntersectionObserver === "undefined") {
+      rows.forEach((r) => r.classList.add("in-view"));
+      return;
+    }
+    // Reveal anything that has reached the fold — including shelves a fast
+    // scroll jumped clean past, which would otherwise never get a callback
+    // and would sit there invisible.
+    function sweep() {
+      rows.forEach((row) => {
+        if (row.classList.contains("in-view")) return;
+        if (row.getBoundingClientRect().top < window.innerHeight * 0.9) {
+          row.classList.add("in-view");
+        }
+      });
+    }
+    const io = new IntersectionObserver(sweep, { threshold: 0.15 });
+    rows.forEach((r) => io.observe(r));
+    // The cupboard is rendered before the screen is shown, and showing it
+    // resets the scroll — so take the first reading after that has happened.
+    requestAnimationFrame(sweep);
+  }
+
+  // The payoff moment: scroll the first new badge into view, let it pop,
+  // then mark them seen so it only ever happens once.
+  function celebrateNewBadges(ids) {
+    function markSeen() {
+      ids.forEach((id) => { profile.badgeSeen[id] = true; });
+      saveProfile(profile);
+      updateCupboardPip();
+    }
+    if (reduceMotion.matches) { markSeen(); return; }
+    // Let the ring finish drawing, then glide down to what's new — showing
+    // the screen resets the scroll, so this can't happen during the render.
+    setTimeout(() => {
+      const first = $("#cupboard-shelves .just-earned");
+      if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+      vibrate([12, 40, 12]);
+      setTimeout(() => burstConfetti(ids.length > 1 ? 60 : 36), 520);
+    }, 780);
+    setTimeout(markSeen, 2400);
   }
 
   // ---------------------------------------------------------------
@@ -1009,6 +1132,7 @@
     renderHeaderChips();
     renderReminderUI();
     renderTopics();
+    updateCupboardPip();
     const decks = loadDecks();
     const wrap = $("#saved-decks-wrap");
     const list = $("#saved-decks");

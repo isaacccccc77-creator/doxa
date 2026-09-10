@@ -443,9 +443,50 @@ button { font-family: inherit; }
 .trophy-curios  { --tone: var(--sage);   --tone-bright: var(--sage-bright);   --tone-glow: rgba(63, 132, 89, 0.28); }
 
 /* ---------------- The cupboard ---------------- */
-.cupboard-progress { margin: -6px 0 2px; }
-.cupboard-progress .xp-rule { height: 8px; background: rgba(125, 112, 87, 0.14); }
-.cupboard-progress .xp-rule-fill { background: linear-gradient(90deg, var(--gold-bright), var(--gold)); }
+/* Completion ring — draws up to your total each time you open the page. */
+.ring-hero {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  margin: 2px auto 6px;
+}
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track {
+  fill: none;
+  stroke: rgba(125, 112, 87, 0.16);
+  stroke-width: 9;
+}
+.ring-fill {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+.ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+.ring-num {
+  font-family: var(--serif);
+  font-size: 1.9rem;
+  font-weight: 560;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ring-of { color: var(--taupe); font-size: 1.1rem; }
+.ring-cap {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--taupe);
+}
 
 .stat-grid { grid-template-columns: repeat(3, 1fr); }
 .stat-tile { min-height: 78px; }
@@ -499,16 +540,81 @@ button { font-family: inherit; }
   box-shadow: 0 3px 7px rgba(120, 88, 30, 0.18);
 }
 
-/* Trophies settle onto the shelf once, then stay put. */
+/* Trophies drop onto their shelf as it scrolls into view, once each. */
 @media (prefers-reduced-motion: no-preference) {
-  .screen.active .shelf-items .trophy {
-    animation: trophy-settle 0.42s var(--bounce) backwards;
+  .shelf-items .trophy { opacity: 0; }
+  .shelf-items.in-view .trophy {
+    animation: trophy-settle 0.5s var(--bounce) forwards;
     animation-delay: var(--stagger, 0ms);
   }
 }
 @keyframes trophy-settle {
-  from { opacity: 0; transform: translateY(-10px) scale(0.86); }
+  from { opacity: 0; transform: translateY(-14px) scale(0.82); }
   to { opacity: 1; transform: none; }
+}
+
+/* Press feedback: yours glints, locked ones give a small "not yet" shake. */
+.trophy-disc { overflow: hidden; }
+.trophy.shine .trophy-disc::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: disc-shine 0.62s ease-out;
+}
+@keyframes disc-shine {
+  from { transform: translateX(-180%) rotate(12deg); }
+  to { transform: translateX(320%) rotate(12deg); }
+}
+.trophy.nudge { animation: trophy-nudge 0.36s ease-in-out; }
+@keyframes trophy-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px) rotate(-3deg); }
+  45% { transform: translateX(4px) rotate(2deg); }
+  70% { transform: translateX(-2px) rotate(-1deg); }
+}
+
+/* Something won since you last looked. */
+.trophy.just-earned { position: relative; }
+.shelf-items.in-view .trophy.just-earned {
+  animation: trophy-unwrap 0.72s var(--bounce) forwards;
+  animation-delay: var(--stagger, 0ms);
+}
+@keyframes trophy-unwrap {
+  0% { opacity: 0; transform: translateY(-18px) scale(0.5) rotate(-14deg); }
+  55% { opacity: 1; transform: translateY(0) scale(1.18) rotate(5deg); }
+  100% { opacity: 1; transform: none; }
+}
+.trophy.just-earned .trophy-disc {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.65), 0 4px 18px var(--tone-glow);
+}
+.trophy-new {
+  position: absolute;
+  top: -4px;
+  right: 6px;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 20px;
+  color: #fff;
+  background: var(--coral);
+  box-shadow: 0 2px 6px rgba(226, 98, 47, 0.4);
+}
+
+/* Unseen badges waiting in the Cupboard. */
+.tab-icon { position: relative; }
+.tab-pip {
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow: 0 0 0 2px var(--paper);
 }
 
 /* ---------------- "Nearly there" progress rows ---------------- */
