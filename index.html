@@ -63,6 +63,32 @@
   </header>
 
   <main class="home-main tabbed-main">
+    <section id="today-card" class="today-card hidden">
+      <div id="today-due" class="today-state">
+        <div class="today-row">
+          <div class="today-num" id="today-num">0</div>
+          <div class="today-text">
+            <div class="today-title" id="today-title">cards due</div>
+            <div class="today-sub" id="today-sub"></div>
+          </div>
+        </div>
+        <button id="today-start" class="btn btn-primary btn-full btn-arrow-cta">
+          <span id="today-btn-label">Start today's review</span><span class="btn-arrow">→</span>
+        </button>
+      </div>
+
+      <div id="today-clear" class="today-state hidden">
+        <div class="today-row">
+          <div class="today-check">✓</div>
+          <div class="today-text">
+            <div class="today-title" id="today-clear-title">All caught up</div>
+            <div class="today-sub" id="today-clear-sub"></div>
+          </div>
+        </div>
+        <button id="today-ahead" class="btn-text">Study ahead anyway</button>
+      </div>
+    </section>
+
     <div class="ledger bento-grid">
       <div class="ledger-item bento-tile bento-tile-gold">
         <div class="ledger-label">Streak</div>
@@ -186,7 +212,7 @@
       </button>
       <button id="start-essay" class="btn bento-tile bento-tile-coral mode-tile">
         <span class="mode-tile-icon">📝</span>
-        <span class="mode-tile-label">Essay</span>
+        <span class="mode-tile-label" id="essay-tile-label">Essay</span>
       </button>
       <button id="start-sticking" class="btn bento-tile bento-tile-oxblood mode-tile mode-tile-wide hidden">
         <span class="mode-tile-icon">🩹</span>
@@ -209,9 +235,27 @@
     <div class="wordmark" id="manage-title">Manage cards</div>
   </header>
   <main class="home-main">
-    <div class="card-panel">
-      <label class="field-label" for="card-front">Front <span class="optional">(question)</span></label>
-      <textarea id="card-front" class="textarea-small" placeholder="e.g. What is the powerhouse of the cell?"></textarea>
+    <div class="card-panel" id="card-editor">
+      <div class="kind-picker" role="group" aria-label="What kind of card?">
+        <button type="button" class="kind-btn" data-kind="quick">
+          <span class="kind-icon">⚡</span>
+          <span class="kind-name">Quick</span>
+          <span class="kind-desc">Term → short answer</span>
+        </button>
+        <button type="button" class="kind-btn" data-kind="essay">
+          <span class="kind-icon">📝</span>
+          <span class="kind-name">Essay</span>
+          <span class="kind-desc">Question → model answer</span>
+        </button>
+        <button type="button" class="kind-btn" data-kind="picture">
+          <span class="kind-icon">🖼</span>
+          <span class="kind-name">Picture</span>
+          <span class="kind-desc">Image → what it shows</span>
+        </button>
+      </div>
+
+      <label class="field-label" for="card-front"><span id="card-front-label">Front</span> <span class="optional" id="card-front-optional">(question)</span></label>
+      <textarea id="card-front" class="textarea-small"></textarea>
       <div class="img-field" id="card-front-img-field">
         <button type="button" id="card-front-img-btn" class="btn-text img-add-btn">＋ Add image to the front</button>
         <div id="card-front-img-preview" class="img-preview hidden">
@@ -221,8 +265,8 @@
         <input id="card-front-img-input" type="file" accept="image/*" class="hidden" />
       </div>
 
-      <label class="field-label" for="card-back">Back <span class="optional">(answer — short or essay-length)</span></label>
-      <textarea id="card-back" class="textarea-medium" placeholder="e.g. The mitochondrion&#10;&#10;Or write a full model answer here — Essay mode will show it back to you to compare against."></textarea>
+      <label class="field-label" for="card-back"><span id="card-back-label">Back</span> <span class="optional" id="card-back-optional">(answer)</span></label>
+      <textarea id="card-back" class="textarea-small"></textarea>
       <div class="img-field" id="card-back-img-field">
         <button type="button" id="card-back-img-btn" class="btn-text img-add-btn">＋ Add image to the answer</button>
         <div id="card-back-img-preview" class="img-preview hidden">

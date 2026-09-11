@@ -210,6 +210,8 @@
     st.weekendSessions = st.weekendSessions || 0;
     st.weekendDate = st.weekendDate || null;
     st.comebacks = st.comebacks || 0;
+    st.reviewedToday = st.reviewedToday || 0;
+    st.reviewedDate = st.reviewedDate || null;
     // Badges you've earned but not yet seen in the Cupboard. They get the
     // reveal, and put a pip on the tab until you go and look.
     p.badgeSeen = p.badgeSeen || {};
@@ -993,6 +995,70 @@
   function dueCount(deck) { return deck.questions.filter((q) => isDue(deck, q.id)).length; }
 
   // ---------------------------------------------------------------
+  // TODAY: everything due across every deck, in one place. Smart Review is
+  // per-deck, so with five decks a day's revision meant opening five
+  // screens — enough friction to end a daily habit. This answers the
+  // question you actually open the app with, and, when you're done, the
+  // one that brings you back: when is the next lot due?
+  // ---------------------------------------------------------------
+  // A day's worth is capped. Facing "312 due" is how people quietly stop
+  // opening a revision app; a batch you can finish is how they don't.
+  const TODAY_BATCH = 40;
+  const AHEAD_BATCH = 20;
+
+  function allDueEntries() {
+    const out = [];
+    loadDecks().forEach((deck) => {
+      deck.questions.forEach((q) => {
+        if (isDue(deck, q.id)) out.push({ q, deck });
+      });
+    });
+    return out;
+  }
+
+  function allEntries() {
+    const out = [];
+    loadDecks().forEach((deck) => {
+      deck.questions.forEach((q) => out.push({ q, deck }));
+    });
+    return out;
+  }
+
+  // The soonest a card that isn't due yet comes back.
+  function nextDueAt() {
+    let soonest = null;
+    loadDecks().forEach((deck) => {
+      deck.questions.forEach((q) => {
+        const m = getMastery(deck, q.id);
+        if (!m || !m.dueAt || m.dueAt <= Date.now()) return;
+        if (soonest === null || m.dueAt < soonest) soonest = m.dueAt;
+      });
+    });
+    return soonest;
+  }
+
+  function whenDue(ts) {
+    const days = Math.ceil((ts - Date.now()) / 86400000);
+    if (days <= 0) return "later today";
+    if (days === 1) return "tomorrow";
+    if (days <= 6) return "on " + new Date(ts).toLocaleDateString(undefined, { weekday: "long" });
+    if (days <= 13) return "in a week";
+    return "in " + days + " days";
+  }
+
+  function reviewedToday() {
+    const st = profile.stats;
+    return st.reviewedDate === todayStr() ? (st.reviewedToday || 0) : 0;
+  }
+
+  function noteReviewed() {
+    const st = profile.stats;
+    const today = todayStr();
+    if (st.reviewedDate !== today) { st.reviewedDate = today; st.reviewedToday = 0; }
+    st.reviewedToday++;
+  }
+
+  // ---------------------------------------------------------------
   // TOPICS: a tag on a card, so a subject that runs through several decks
   // can be revised as one thing. Anatomy, physiology and pharmacology all
   // have cardiology in them; the deck you happened to file a card in
@@ -1127,7 +1193,69 @@
     });
   }
 
+  function renderToday() {
+    const card = $("#today-card");
+    const entries = allDueEntries();
+    const totalCards = allEntries().length;
+    if (totalCards === 0) { card.classList.add("hidden"); return; }
+    card.classList.remove("hidden");
+
+    const reviewed = reviewedToday();
+    const reviewedLine = reviewed > 0
+      ? `${reviewed} card${reviewed === 1 ? "" : "s"} reviewed today`
+      : "";
+
+    if (entries.length > 0) {
+      $("#today-due").classList.remove("hidden");
+      $("#today-clear").classList.add("hidden");
+
+      const deckCount = new Set(entries.map((e) => e.deck.id)).size;
+      const batch = Math.min(entries.length, TODAY_BATCH);
+      $("#today-num").textContent = entries.length;
+      $("#today-title").textContent = `card${entries.length === 1 ? "" : "s"} due`;
+
+      const across = deckCount > 1 ? `across ${deckCount} decks` : "";
+      const overflow = entries.length > TODAY_BATCH
+        ? `${batch} at a time — no need to clear it all at once`
+        : "";
+      $("#today-sub").textContent = [across, overflow, reviewedLine].filter(Boolean).join(" · ");
+      $("#today-btn-label").textContent = entries.length > TODAY_BATCH
+        ? `Review ${batch} now`
+        : "Start today's review";
+    } else {
+      $("#today-due").classList.add("hidden");
+      $("#today-clear").classList.remove("hidden");
+
+      const next = nextDueAt();
+      $("#today-clear-title").textContent = reviewed > 0 ? "All caught up" : "Nothing due today";
+      $("#today-clear-sub").textContent = [
+        reviewedLine,
+        next ? `next review ${whenDue(next)}` : "study a deck to start the clock",
+      ].filter(Boolean).join(" · ");
+    }
+  }
+
+  function beginTodayReview() {
+    const entries = allDueEntries();
+    if (!entries.length) return;
+    shuffleArr(entries);
+    currentDeck = null;
+    beginFlashcardsSession(entries.slice(0, TODAY_BATCH));
+  }
+
+  $("#today-start").addEventListener("click", beginTodayReview);
+
+  $("#today-ahead").addEventListener("click", () => {
+    const entries = allEntries();
+    if (!entries.length) return;
+    shuffleArr(entries);
+    currentDeck = null;
+    toast("Working ahead — these aren't due yet.");
+    beginFlashcardsSession(entries.slice(0, AHEAD_BATCH));
+  });
+
   function renderHome() {
+    renderToday();
     renderProfileHeader();
     renderHeaderChips();
     renderReminderUI();
@@ -1176,6 +1304,8 @@
     $("#summary-count").textContent = deck.questions.length;
 
     const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-essay")];
+    const essayCount = deck.questions.filter((q) => inferKind(q) === "essay").length;
+    $("#essay-tile-label").textContent = essayCount ? `Essay (${essayCount})` : "Essay";
     const stuck = stickingPoints(deck);
     const stickingBtn = $("#start-sticking");
     stickingBtn.classList.toggle("hidden", stuck.length === 0);
@@ -1265,6 +1395,7 @@
     // anatomy deck is wrong far more often than it's right.
     if (lastManagedDeckId !== deck.id) {
       $("#card-tags").value = "";
+      applyCardKind("quick");
       lastManagedDeckId = deck.id;
     }
     cancelEditCard();
@@ -1291,7 +1422,7 @@
             <div class="deck-card-title">${escapeHtml(front)}</div>
             ${lapses >= STICKING_THRESHOLD ? `<span class="lapse-tag" title="Missed ${lapses} times">missed ${lapses}×</span>` : ""}
           </div>
-          <div class="deck-card-meta">${(q.imgFront || q.imgBack) ? '<span class="img-chip">🖼 image</span> ' : ""}${escapeHtml(back)}</div>
+          <div class="deck-card-meta"><span class="kind-chip kind-chip-${inferKind(q)}">${KIND_CHIP[inferKind(q)]}</span>${escapeHtml(back)}</div>
           ${tagsOf(q).length ? `<div class="card-tags">${tagsOf(q).map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <button class="icon-btn card-delete" aria-label="Delete card">✕</button>
@@ -1305,6 +1436,86 @@
     }
     lastAddedCardId = null;
   }
+
+  // ---------------------------------------------------------------
+  // CARD KINDS: what you're writing decides what the form asks for.
+  // A term and its definition, an exam question and a model answer, and
+  // a picture to identify are three different jobs; one form trying to
+  // explain all three through its placeholder text served none of them.
+  // ---------------------------------------------------------------
+  const CARD_KINDS = {
+    quick: {
+      frontLabel: "Term or question",
+      frontOptional: "",
+      frontPlaceholder: "e.g. Mitochondrion",
+      backLabel: "Answer",
+      backOptional: "(keep it short)",
+      backPlaceholder: "e.g. The organelle that produces most of the cell's ATP.",
+      backClass: "textarea-small",
+      saveLabel: "Add quick card",
+    },
+    essay: {
+      frontLabel: "Essay question",
+      frontOptional: "",
+      frontPlaceholder: "e.g. Discuss how the renin-angiotensin system regulates blood pressure.",
+      backLabel: "Model answer",
+      backOptional: "(the answer you'd want to write in an exam)",
+      backPlaceholder: "Write the full answer here. Essay mode shows it beside what you wrote from memory, so the more complete it is, the more useful the comparison.",
+      backClass: "textarea-tall",
+      saveLabel: "Add essay card",
+    },
+    picture: {
+      frontLabel: "Prompt",
+      frontOptional: "(optional — the picture can ask on its own)",
+      frontPlaceholder: "e.g. Name the labelled structures.",
+      backLabel: "Answer",
+      backOptional: "",
+      backPlaceholder: "e.g. A: greater trochanter. B: femoral head and neck.",
+      backClass: "textarea-small",
+      saveLabel: "Add picture card",
+    },
+  };
+  const KIND_ORDER = ["quick", "essay", "picture"];
+  const KIND_CHIP = { quick: "⚡ quick", essay: "📝 essay", picture: "🖼 picture" };
+  let cardKind = "quick";
+
+  // Cards written before kinds existed still belong to one.
+  function inferKind(q) {
+    if (q.kind && CARD_KINDS[q.kind]) return q.kind;
+    if (q.imgFront) return "picture";
+    if ((q.answer || "").length > 220) return "essay";
+    return "quick";
+  }
+
+  function applyCardKind(kind) {
+    cardKind = CARD_KINDS[kind] ? kind : "quick";
+    const spec = CARD_KINDS[cardKind];
+    $all(".kind-btn").forEach((b) => b.classList.toggle("active", b.dataset.kind === cardKind));
+
+    $("#card-front-label").textContent = spec.frontLabel;
+    $("#card-front-optional").textContent = spec.frontOptional;
+    $("#card-front").placeholder = spec.frontPlaceholder;
+
+    $("#card-back-label").textContent = spec.backLabel;
+    $("#card-back-optional").textContent = spec.backOptional;
+    $("#card-back").placeholder = spec.backPlaceholder;
+    $("#card-back").className = spec.backClass;
+
+    // A picture card leads with the picture.
+    $("#card-editor").classList.toggle("kind-picture", cardKind === "picture");
+    $("#card-front-img-btn").textContent = cardKind === "picture"
+      ? "＋ Choose the picture"
+      : "＋ Add image to the front";
+
+    if (!editingCardId) $("#card-save-btn").textContent = spec.saveLabel;
+  }
+
+  $all(".kind-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyCardKind(btn.dataset.kind);
+      vibrate(8);
+    });
+  });
 
   // Image drafts for the card being written. "original" is what the card
   // already had, so an abandoned edit can bin the picture it uploaded and
@@ -1391,6 +1602,7 @@
 
   function startEditCard(q) {
     editingCardId = q.id;
+    applyCardKind(inferKind(q));
     $("#card-front").value = q.prompt;
     $("#card-back").value = q.answer;
     $("#card-tags").value = tagsOf(q).join(", ");
@@ -1413,7 +1625,8 @@
     // is how a tag system stops being used.
     renderTagSuggestions();
     resetCardImageDrafts(null);
-    $("#card-save-btn").textContent = "Add card";
+    // Stay in the same kind — you're almost always writing a run of them.
+    $("#card-save-btn").textContent = CARD_KINDS[cardKind].saveLabel;
     $("#card-cancel-btn").classList.add("hidden");
   }
 
@@ -1439,14 +1652,23 @@
     if (!currentDeck) return;
     const front = $("#card-front").value.trim();
     const back = $("#card-back").value.trim();
-    if ((!front && !cardImg.front) || (!back && !cardImg.back)) {
-      toast("Each side needs some text or an image.");
+    if (cardKind === "picture" && !cardImg.front) {
+      toast("Pick the picture this card is about.");
+      return;
+    }
+    if (!front && !cardImg.front) {
+      toast(cardKind === "essay" ? "Add the question first." : "Add the front of the card first.");
+      return;
+    }
+    if (!back && !cardImg.back) {
+      toast(cardKind === "essay" ? "Add a model answer to compare against." : "Add the answer first.");
       return;
     }
     if (editingCardId) {
       const q = currentDeck.questions.find((qq) => qq.id === editingCardId);
       if (q) {
         q.prompt = front; q.answer = back; q.answerShort = back;
+        q.kind = cardKind;
         q.tags = parseTags($("#card-tags").value);
         if (cardImg.originalFront && cardImg.originalFront !== cardImg.front) deleteImage(cardImg.originalFront);
         if (cardImg.originalBack && cardImg.originalBack !== cardImg.back) deleteImage(cardImg.originalBack);
@@ -1457,6 +1679,7 @@
       const newCard = {
         id: "m" + Date.now() + Math.random().toString(36).slice(2, 7),
         type: "manual",
+        kind: cardKind,
         prompt: front,
         answer: back,
         answerShort: back,
@@ -1594,6 +1817,7 @@
     const q = currentFlashQuestion();
     const deck = poolDeckFor(q.id);
     profile.stats.cardsGraded++;
+    noteReviewed();
     gradeQuestion(deck, q.id, known);
     upsertDeck(deck);
     if (known) flash.known++; else flash.learning++;
@@ -1725,9 +1949,14 @@
     beginFlashcardsSession(withDeck(stuck, currentDeck));
   });
 
+  function essayCardsFor(deck) {
+    const written = deck.questions.filter((q) => inferKind(q) === "essay");
+    return written.length ? written : deck.questions;
+  }
+
   $("#start-essay").addEventListener("click", () => {
     if (!currentDeck) return;
-    beginEssaySession(currentDeck.questions);
+    beginEssaySession(essayCardsFor(currentDeck));
   });
 
   function renderEssayQuestion() {
@@ -1791,6 +2020,7 @@
   function gradeEssay(strong) {
     const q = currentEssayQuestion();
     profile.stats.cardsGraded++;
+    noteReviewed();
     gradeQuestion(currentDeck, q.id, strong);
     upsertDeck(currentDeck);
     if (strong) essay.strong++; else essay.weak.push(q);
@@ -1851,8 +2081,8 @@
       vibrate([15, 40, 15]);
     }
 
-    $("#results-retry").textContent = "Write the whole deck again";
-    $("#results-retry").onclick = () => beginEssaySession(currentDeck.questions);
+    $("#results-retry").textContent = "Write these again";
+    $("#results-retry").onclick = () => beginEssaySession(essayCardsFor(currentDeck));
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }

@@ -225,6 +225,60 @@ button { font-family: inherit; }
   border: 1px solid rgba(193, 74, 55, 0.3);
 }
 
+/* ---------------- Today ---------------- */
+.today-card {
+  padding: 20px 20px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--hair);
+  background:
+    linear-gradient(150deg, rgba(230, 168, 60, 0.14), rgba(31, 143, 146, 0.07)),
+    var(--panel);
+  box-shadow: 0 6px 18px rgba(120, 88, 30, 0.09);
+}
+.today-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.today-num {
+  font-family: var(--serif);
+  font-size: 2.9rem;
+  font-weight: 560;
+  line-height: 0.9;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.today-check {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #fff;
+  background: linear-gradient(160deg, var(--sage-bright), var(--sage));
+  box-shadow: 0 3px 10px rgba(63, 132, 89, 0.28);
+}
+.today-text { min-width: 0; }
+.today-title {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 560;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.today-sub {
+  font-size: 0.72rem;
+  color: var(--taupe);
+  line-height: 1.45;
+  margin-top: 3px;
+}
+#today-ahead { display: block; margin: 0 auto; }
+
 /* ---------------- Topics (cross-deck tags) ---------------- */
 .section-note {
   margin: 6px 2px 12px;
@@ -865,6 +919,60 @@ input[type="text"]:focus, textarea:focus { border-color: var(--gold-dim); }
 textarea { min-height: 160px; resize: vertical; line-height: 1.55; }
 textarea.textarea-small { min-height: 70px; }
 textarea.textarea-medium { min-height: 150px; }
+textarea.textarea-tall { min-height: 220px; }
+
+/* ---------------- Card kind picker ---------------- */
+.kind-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.kind-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 6px 11px;
+  border-radius: 14px;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  color: var(--taupe);
+  text-align: center;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.14s var(--bounce);
+}
+.kind-btn:active { transform: scale(0.95); }
+.kind-icon { font-size: 1.2rem; line-height: 1; filter: grayscale(1); opacity: 0.55; transition: filter 0.18s ease, opacity 0.18s ease; }
+.kind-name { font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+.kind-desc { font-size: 0.56rem; line-height: 1.3; letter-spacing: 0.01em; }
+.kind-btn.active {
+  border-color: var(--gold);
+  background: rgba(184, 131, 27, 0.09);
+  color: var(--gold-dim);
+}
+.kind-btn.active .kind-icon { filter: none; opacity: 1; }
+
+/* A picture card leads with its picture. */
+#card-editor.kind-picture { display: flex; flex-direction: column; }
+#card-editor.kind-picture > * { order: 2; }
+#card-editor.kind-picture > .kind-picker { order: 0; }
+#card-editor.kind-picture > #card-front-img-field { order: 1; margin-bottom: 20px; }
+
+/* What kind a card is, in the list. */
+.kind-chip {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.kind-chip-quick { color: var(--gold-dim); background: rgba(184, 131, 27, 0.13); }
+.kind-chip-essay { color: var(--violet); background: rgba(122, 94, 214, 0.13); }
+.kind-chip-picture { color: var(--teal); background: rgba(31, 143, 146, 0.13); }
 .hint { font-size: 0.78rem; color: var(--taupe); margin: 10px 2px 16px; line-height: 1.5; }
 
 .btn {
@@ -897,6 +1005,10 @@ textarea.textarea-medium { min-height: 150px; }
   padding: 10px;
   align-self: center;
   font-size: 0.85rem;
+  cursor: pointer;
+  /* Only the underline is wanted — without clearing the rest, the
+     browser's default button box shows on the other three sides. */
+  border: 0;
   border-bottom: 1px solid var(--hair);
   transition: color 0.15s ease, opacity 0.15s ease;
 }
