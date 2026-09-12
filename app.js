@@ -253,6 +253,7 @@
     p.paperSize = p.paperSize || 10;
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
+    p.sfx = p.sfx !== false;
     return p;
   }
   function saveProfile(p) {
@@ -1154,6 +1155,18 @@
     { id: "train", label: "Night train", icon: "🚂", note: "Rumble and rails" },
   ];
 
+  // D5 · F#5 · A5 · D6 — a major arpeggio landing on the octave, which is
+  // the shape of nearly every "well done" sound you've ever heard. Quick
+  // enough to be over before it's annoying, with the last note left to ring.
+  const FANFARE = [
+    { f: 587.33, t: 0.000, level: 0.16, decay: 0.85, ratio: 2.0, index: 2.8, pan: -0.35 },
+    { f: 739.99, t: 0.075, level: 0.16, decay: 0.85, ratio: 2.0, index: 2.6, pan: -0.14 },
+    { f: 880.00, t: 0.150, level: 0.17, decay: 0.95, ratio: 2.0, index: 2.4, pan: 0.14 },
+    { f: 1174.66, t: 0.230, level: 0.20, decay: 1.90, ratio: 2.0, index: 2.2, pan: 0.00 },
+    // The fifth under the landing note, quiet, so it arrives as a chord.
+    { f: 880.00, t: 0.240, level: 0.09, decay: 1.70, ratio: 2.0, index: 1.8, pan: -0.22 },
+  ];
+
   const Ambience = (function () {
     let ctx = null;
     let master = null;
@@ -1162,6 +1175,9 @@
     let timers = [];
     let scape = "silence";
     let muted = false;
+    let sfx = true;
+    let fx = null;
+    let lastFanfare = 0;
     const LEVEL = 0.42;
 
     function supported() {
@@ -1211,6 +1227,143 @@
       // entry point here is behind a tap, so this resumes cleanly.
       if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
       return ctx;
+    }
+
+    // ---- Celebration voice -------------------------------------------
+    // Two-operator FM: a sine carrier whose frequency is wobbled by another
+    // sine. With the modulation falling away fast you get the metallic
+    // strike of a struck bar settling into a clean tone — a celesta, near
+    // enough. Cheap, and it has none of the graininess of a short sample.
+    function bell(dest, at, freq, level, decay, ratio, index, pan) {
+      const carrier = ctx.createOscillator();
+      const mod = ctx.createOscillator();
+      const modDepth = ctx.createGain();
+      const amp = ctx.createGain();
+
+      carrier.type = "sine";
+      mod.type = "sine";
+      carrier.frequency.value = freq;
+      mod.frequency.value = freq * ratio;
+
+      // The strike: a lot of modulation for a few milliseconds, then almost
+      // none. This is the whole difference between a bell and a beep.
+      modDepth.gain.setValueAtTime(freq * index, at);
+      modDepth.gain.exponentialRampToValueAtTime(freq * index * 0.02, at + decay * 0.35);
+      mod.connect(modDepth);
+      modDepth.connect(carrier.frequency);
+
+      amp.gain.setValueAtTime(0.0001, at);
+      amp.gain.exponentialRampToValueAtTime(level, at + 0.008);
+      amp.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+
+      carrier.connect(amp);
+      let tail = amp;
+      if (ctx.createStereoPanner) {
+        const p = ctx.createStereoPanner();
+        p.pan.value = pan || 0;
+        amp.connect(p);
+        tail = p;
+      }
+      tail.connect(dest);
+
+      mod.start(at); carrier.start(at);
+      mod.stop(at + decay + 0.05); carrier.stop(at + decay + 0.05);
+    }
+
+    // An impulse response built from decaying noise. Running it through a
+    // one-pole lowpass as it's written darkens the tail, which is what
+    // stops a synthetic reverb sounding like fizz.
+    function impulse(seconds, falloff, damp) {
+      const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+      const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        let lp = 0;
+        for (let i = 0; i < len; i++) {
+          const t = i / len;
+          const n = (Math.random() * 2 - 1) * Math.pow(1 - t, falloff);
+          lp += (n - lp) * damp;
+          d[i] = lp;
+        }
+      }
+      return buf;
+    }
+
+    // The celebration runs on its own bus. The soundscape master is shelved
+    // and rolled off hard to keep rain from hissing; a chime pushed through
+    // that would come out muffled.
+    function ensureFx() {
+      if (fx) return fx;
+      const input = ctx.createGain();
+      input.gain.value = 1;
+
+      const dry = ctx.createGain();
+      dry.gain.value = 0.85;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.3;
+      const room = ctx.createConvolver();
+      room.buffer = impulse(1.9, 3.0, 0.32);
+
+      // Sweet, never sharp — the same rule the soundscapes follow.
+      const tame = ctx.createBiquadFilter();
+      tame.type = "highshelf";
+      tame.frequency.value = 6500;
+      tame.gain.value = -4;
+
+      const out = ctx.createDynamicsCompressor();
+      out.threshold.value = -15;
+      out.knee.value = 20;
+      out.ratio.value = 5;
+      out.attack.value = 0.004;
+      out.release.value = 0.25;
+
+      input.connect(dry);
+      input.connect(room);
+      room.connect(wet);
+      dry.connect(tame);
+      wet.connect(tame);
+      // The compressor holds the peaks down; this puts the level back so
+      // the chime carries over a phone speaker without ever clipping.
+      const makeup = ctx.createGain();
+      makeup.gain.value = 2.3;
+
+      tame.connect(out);
+      out.connect(makeup);
+      makeup.connect(ctx.destination);
+      if (analyser) makeup.connect(analyser);
+
+      fx = input;
+      return fx;
+    }
+
+    // A rising D major arpeggio landing on the octave, a quiet body note
+    // under it, and a few grains of glitter over the tail.
+    function scheduleFanfare(bus, t0) {
+      FANFARE.forEach((n) => {
+        bell(bus, t0 + n.t, n.f, n.level, n.decay, n.ratio, n.index, n.pan);
+      });
+
+      // Two octaves below the landing note, so it has a body and doesn't
+      // read as a thin beep through a phone speaker.
+      const body = ctx.createOscillator();
+      const bodyGain = ctx.createGain();
+      body.type = "sine";
+      body.frequency.value = 146.83;
+      const bt = t0 + 0.2;
+      bodyGain.gain.setValueAtTime(0.0001, bt);
+      bodyGain.gain.exponentialRampToValueAtTime(0.055, bt + 0.05);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, bt + 1.3);
+      body.connect(bodyGain); bodyGain.connect(bus);
+      body.start(bt); body.stop(bt + 1.4);
+
+      // Glitter: three very quiet, very short strikes two octaves up,
+      // scattered in time and pan. It's the difference between a sound
+      // that was made and one that was generated.
+      for (let i = 0; i < 3; i++) {
+        const at = t0 + 0.26 + i * 0.055 + Math.random() * 0.03;
+        bell(bus, at, 2349.32 * (1 + (Math.random() - 0.5) * 0.03),
+             0.022, 0.5, 3.4, 1.6, (Math.random() - 0.5) * 1.2);
+      }
     }
 
     function noiseBuffer(seconds, kind) {
@@ -1481,22 +1634,60 @@
         fadeTo(muted || scape === "silence" ? 0 : LEVEL, 0.25);
       },
 
+      setSfx(value) { sfx = value !== false; },
+      sfxOn() { return sfx; },
+
       // A small two-note arrival, so finishing sounds like finishing.
       chime() {
-        if (!ensureCtx() || muted) return;
-        [660, 990].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const g = ctx.createGain();
-          const at = ctx.currentTime + i * 0.16;
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          g.gain.setValueAtTime(0.0001, at);
-          g.gain.exponentialRampToValueAtTime(0.14, at + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
-          osc.connect(g); g.connect(ctx.destination);
-          osc.start(at);
-          osc.stop(at + 1.2);
+        if (!sfx || muted || !ensureCtx()) return;
+        const bus = ensureFx();
+        [659.25, 987.77].forEach((freq, i) => {
+          bell(bus, ctx.currentTime + i * 0.14, freq, 0.13, 1.0, 2.0, 2.6, i ? 0.12 : -0.12);
         });
+      },
+
+      // The sound that lands with the confetti. Synthesised rather than
+      // sampled: no file to ship, nothing to load, and it works offline
+      // and from file:// like the rest of the app.
+      fanfare() {
+        if (!sfx || muted || !ensureCtx()) return;
+        // One event often fires two bursts (a badge on top of a finished
+        // session). Let the first one speak.
+        const now = Date.now();
+        if (now - lastFanfare < 900) return;
+        lastFanfare = now;
+
+        scheduleFanfare(ensureFx(), ctx.currentTime + 0.02);
+
+        // Step out of the way of whatever is playing, then come back.
+        if (master && scape !== "silence") {
+          const at = ctx.currentTime;
+          master.gain.cancelScheduledValues(at);
+          master.gain.setValueAtTime(master.gain.value, at);
+          master.gain.linearRampToValueAtTime(LEVEL * 0.4, at + 0.12);
+          master.gain.linearRampToValueAtTime(LEVEL, at + 1.9);
+        }
+      },
+
+      // Renders the flourish into an offline context. Sound is the one part
+      // of this app with nothing to look at, so this is how its shape gets
+      // checked — and it runs the same scheduler as the live path, which a
+      // second copy of the synthesis would not.
+      renderFanfare(seconds) {
+        const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!OC) return null;
+        const live = { ctx, fx, master, analyser };
+        try {
+          ctx = new OC(2, Math.ceil(44100 * (seconds || 3)), 44100);
+        } catch (e) { return null; }
+        fx = null; master = null; analyser = null;
+        let rendering = null;
+        try {
+          scheduleFanfare(ensureFx(), 0.02);
+          rendering = ctx.startRendering();
+        } catch (e) { rendering = null; }
+        ctx = live.ctx; fx = live.fx; master = live.master; analyser = live.analyser;
+        return rendering;
       },
 
       // Band energies off the master bus. Sound is the one thing in this
@@ -1524,6 +1715,7 @@
           muted,
           gain: master ? Math.round(master.gain.value * 100) / 100 : 0,
           voices: voices.length,
+          sfx,
         };
       },
     };
@@ -1532,6 +1724,7 @@
   // The soundscapes are the one part of the app with no visible output to
   // assert on, so the engine is reachable for tests.
   window.__doxaAmbience = Ambience;
+  Ambience.setSfx(profile.sfx);
 
   // ---------------------------------------------------------------
   // TODAY: everything due across every deck, in one place. Smart Review is
@@ -2576,6 +2769,22 @@
     });
   }
 
+  function renderSfxToggle() {
+    const btn = $("#sfx-toggle");
+    if (!btn) return;
+    btn.setAttribute("aria-pressed", profile.sfx ? "true" : "false");
+  }
+
+  $("#sfx-toggle").addEventListener("click", () => {
+    profile.sfx = !profile.sfx;
+    saveProfile(profile);
+    Ambience.setSfx(profile.sfx);
+    renderSfxToggle();
+    vibrate(8);
+    // Turning it on plays it, the same way picking a soundscape does.
+    if (profile.sfx) Ambience.fanfare();
+  });
+
   function renderTargetRow() {
     const row = $("#target-row");
     row.innerHTML = "";
@@ -2619,6 +2828,7 @@
   function renderRoom() {
     renderThemeGrid();
     renderScapeGrid();
+    renderSfxToggle();
     renderTargetRow();
     updateSittingHint();
   }
@@ -3913,6 +4123,9 @@
   window.addEventListener("resize", resizeConfettiCanvas);
 
   function burstConfetti(count) {
+    // The sound belongs to the moment, not to the animation — turning
+    // motion off shouldn't take the celebration with it.
+    Ambience.fanfare();
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const canvas = $("#confetti-canvas");
     if (!canvas.width) resizeConfettiCanvas();

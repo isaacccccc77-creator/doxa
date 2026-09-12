@@ -800,6 +800,51 @@ input[type="date"] { font-family: inherit; }
 }
 .scape-btn.active .scape-icon { filter: none; opacity: 1; }
 
+/* Celebration chime switch */
+.sfx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 15px;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: var(--taupe);
+  transition: border-color 0.18s ease, transform 0.14s var(--bounce);
+}
+.sfx-row:active { transform: scale(0.985); }
+.sfx-row[aria-pressed="true"] { border-color: var(--violet); }
+.sfx-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sfx-label { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+.sfx-note { font-size: 0.62rem; line-height: 1.35; }
+.sfx-switch {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  /* Mixed from the row's own text colour, so the off state stays visible
+     on a cream card and on a midnight one without a per-theme token. */
+  background: rgb(var(--shadow-rgb) / 0.16);
+  background: color-mix(in srgb, currentColor 30%, transparent);
+  position: relative;
+  transition: background 0.2s ease;
+}
+.sfx-row[aria-pressed="true"] .sfx-switch { background: var(--violet); }
+.sfx-knob {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fdfcfa;
+  box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.35);
+  transition: transform 0.2s var(--bounce);
+}
+.sfx-row[aria-pressed="true"] .sfx-knob { transform: translateX(18px); }
+
 .target-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .target-btn {
   flex: 1 1 68px;
