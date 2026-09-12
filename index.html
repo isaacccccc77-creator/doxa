@@ -34,7 +34,7 @@
 
     <div class="card-panel">
       <label class="field-label" for="profile-name-input">Your name</label>
-      <input id="profile-name-input" type="text" placeholder="e.g. Anne" maxlength="24" />
+      <input id="profile-name-input" type="text" placeholder="Anne" maxlength="24" />
 
       <label class="field-label">Choose an avatar</label>
       <div id="avatar-preview-wrap" class="avatar-preview-wrap hidden">
@@ -132,7 +132,7 @@
 
     <div class="card-panel">
       <label class="field-label" for="deck-title">Deck name <span class="optional">(optional)</span></label>
-      <input id="deck-title" type="text" placeholder="e.g. Bio Chapter 4" maxlength="60" />
+      <input id="deck-title" type="text" placeholder="Biology — Chapter 4" maxlength="60" />
 
       <button id="create-empty-btn" class="btn btn-primary btn-full">Create flashcards by hand</button>
       <div class="hint">Start a deck and add your own front → back cards.</div>
@@ -247,7 +247,7 @@
   <main class="home-main">
     <div class="card-panel">
       <label class="field-label" for="exam-name">What is it</label>
-      <input id="exam-name" type="text" placeholder="e.g. Physiology Paper 2" maxlength="60" />
+      <input id="exam-name" type="text" placeholder="Biology Paper 2" maxlength="60" />
 
       <label class="field-label" for="exam-date">When</label>
       <input id="exam-date" type="date" />
@@ -401,6 +401,8 @@
         </button>
       </div>
 
+      <p class="kind-blurb" id="kind-blurb"></p>
+
       <label class="field-label" for="card-front"><span id="card-front-label">Front</span> <span class="optional" id="card-front-optional">(question)</span></label>
       <textarea id="card-front" class="textarea-small"></textarea>
       <div class="img-field" id="card-front-img-field">
@@ -424,7 +426,7 @@
       </div>
 
       <label class="field-label" for="card-tags">Topics <span class="optional">(optional, comma separated)</span></label>
-      <input id="card-tags" type="text" placeholder="e.g. cardiology, canine" maxlength="200" />
+      <input id="card-tags" type="text" placeholder="cells, genetics" maxlength="200" />
       <div id="card-tag-suggestions" class="tag-suggest hidden"></div>
 
       <button id="card-save-btn" class="btn btn-primary btn-full">Add card</button>

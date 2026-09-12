@@ -2484,11 +2484,15 @@
       stickingBtn.classList.add("hidden");
       $("#start-review-all").classList.add("hidden");
       $("#manage-cards-label").textContent = "Add your first card";
+      // It's the only tile on an empty deck, so it takes the full row
+      // rather than sitting there as a half-width stub.
+      $("#manage-cards-btn").classList.add("mode-tile-wide");
     } else {
       $("#summary-sub").textContent = "questions in this deck";
       $("#due-callout").classList.remove("hidden");
       studyButtons.forEach((b) => b.classList.remove("hidden"));
       $("#manage-cards-label").textContent = "Manage cards";
+      $("#manage-cards-btn").classList.remove("mode-tile-wide");
       const due = dueCount(deck);
       const callout = $("#due-callout");
       if (due > 0) {
@@ -2616,34 +2620,41 @@
   // a picture to identify are three different jobs; one form trying to
   // explain all three through its placeholder text served none of them.
   // ---------------------------------------------------------------
+  // Placeholders are examples, not instructions. What a mode is *for*
+  // gets one line of its own under the picker — cramming that into a
+  // placeholder made the longest one four lines of grey text you had to
+  // read past before you could start typing.
   const CARD_KINDS = {
     quick: {
+      blurb: "A term on the front, a short answer on the back.",
       frontLabel: "Term or question",
       frontOptional: "",
-      frontPlaceholder: "e.g. Mitochondrion",
+      frontPlaceholder: "Photosynthesis",
       backLabel: "Answer",
-      backOptional: "(keep it short)",
-      backPlaceholder: "e.g. The organelle that produces most of the cell's ATP.",
+      backOptional: "(short)",
+      backPlaceholder: "How plants turn light into glucose",
       backClass: "textarea-small",
       saveLabel: "Add quick card",
     },
     essay: {
+      blurb: "You write yours from memory, then compare the two side by side.",
       frontLabel: "Essay question",
       frontOptional: "",
-      frontPlaceholder: "e.g. Discuss how the renin-angiotensin system regulates blood pressure.",
+      frontPlaceholder: "Explain how enzymes speed up reactions",
       backLabel: "Model answer",
-      backOptional: "(the answer you'd want to write in an exam)",
-      backPlaceholder: "Write the full answer here. Essay mode shows it beside what you wrote from memory, so the more complete it is, the more useful the comparison.",
+      backOptional: "",
+      backPlaceholder: "The full answer you'd want to write in the exam",
       backClass: "textarea-tall",
       saveLabel: "Add essay card",
     },
     picture: {
+      blurb: "The picture asks the question. A prompt is only needed if it doesn't.",
       frontLabel: "Prompt",
-      frontOptional: "(optional — the picture can ask on its own)",
-      frontPlaceholder: "e.g. Name the labelled structures.",
+      frontOptional: "(optional)",
+      frontPlaceholder: "Name the labelled parts",
       backLabel: "Answer",
       backOptional: "",
-      backPlaceholder: "e.g. A: greater trochanter. B: femoral head and neck.",
+      backPlaceholder: "What the picture shows",
       backClass: "textarea-small",
       saveLabel: "Add picture card",
     },
@@ -2665,6 +2676,7 @@
     const spec = CARD_KINDS[cardKind];
     $all(".kind-btn").forEach((b) => b.classList.toggle("active", b.dataset.kind === cardKind));
 
+    $("#kind-blurb").textContent = spec.blurb;
     $("#card-front-label").textContent = spec.frontLabel;
     $("#card-front-optional").textContent = spec.frontOptional;
     $("#card-front").placeholder = spec.frontPlaceholder;

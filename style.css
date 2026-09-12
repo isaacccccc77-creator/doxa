@@ -1248,10 +1248,19 @@ textarea.textarea-tall { min-height: 220px; }
 }
 .kind-btn.active .kind-icon { filter: none; opacity: 1; }
 
+.kind-blurb {
+  margin: -10px 0 18px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--taupe);
+  font-style: italic;
+}
+
 /* A picture card leads with its picture. */
 #card-editor.kind-picture { display: flex; flex-direction: column; }
 #card-editor.kind-picture > * { order: 2; }
 #card-editor.kind-picture > .kind-picker { order: 0; }
+#card-editor.kind-picture > .kind-blurb { order: 0; }
 #card-editor.kind-picture > #card-front-img-field { order: 1; margin-bottom: 20px; }
 
 /* What kind a card is, in the list. */
