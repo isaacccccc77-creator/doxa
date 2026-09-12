@@ -297,9 +297,17 @@
     <h2 class="section-title">The numbers</h2>
     <div id="exam-stats" class="bento-grid stat-grid"></div>
 
-    <h2 class="section-title">Where you stand</h2>
-    <p class="section-note">Weakest first. Tap one to work on it.</p>
-    <div id="exam-areas" class="area-list"></div>
+    <div id="exam-unlinked" class="exam-unlinked hidden">
+      <div class="exam-unlinked-icon">🗂</div>
+      <p class="exam-unlinked-text">Nothing is linked to this exam yet, so there's nothing to forecast. Tell it which decks and topics it's on.</p>
+      <button id="exam-pick-btn" class="btn btn-primary btn-full">Choose what it covers</button>
+    </div>
+
+    <div id="exam-linked">
+      <h2 class="section-title">Where you stand</h2>
+      <p class="section-note">Weakest first. Tap one to work on it.</p>
+      <div id="exam-areas" class="area-list"></div>
+    </div>
 
     <button id="exam-study-btn" class="btn btn-primary btn-full btn-arrow-cta">
       <span id="exam-study-label">Study this exam</span><span class="btn-arrow">→</span>
@@ -341,6 +349,7 @@
     <p class="summary-sub" id="summary-sub">questions in this deck</p>
     <div id="due-callout" class="due-callout">0 due for review</div>
     <div id="summary-exams" class="summary-exams hidden"></div>
+    <button id="summary-link-btn" class="btn-text hidden">Link to an exam</button>
     <div class="mode-bento">
       <button id="start-review" class="btn bento-tile bento-tile-gold mode-tile mode-tile-wide">
         <span class="mode-tile-icon">⚡</span>
@@ -537,6 +546,18 @@
 <div id="lightbox" class="lightbox hidden">
   <img id="lightbox-img" class="lightbox-img" alt="" />
   <button id="lightbox-close" class="lightbox-close" aria-label="Close image">✕</button>
+</div>
+
+<!-- LINK A DECK TO EXAMS -->
+<div id="link-sheet-wrap" class="sheet-wrap hidden">
+  <div class="sheet-backdrop" id="link-sheet-backdrop"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="link-sheet-title">
+    <div class="sheet-grip"></div>
+    <div class="sheet-name" id="link-sheet-title">Counts toward</div>
+    <div class="sheet-desc" id="link-sheet-sub"></div>
+    <div id="link-sheet-list" class="link-list"></div>
+    <button id="link-sheet-close" class="btn btn-primary btn-full">Done</button>
+  </div>
 </div>
 
 <!-- BADGE DETAIL SHEET -->

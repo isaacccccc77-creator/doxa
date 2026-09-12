@@ -1534,7 +1534,7 @@
       if (daysUntil(exam.date) < 0) return false;
       const wantDecks = exam.deckIds || [];
       const wantTags = exam.tags || [];
-      if (wantDecks.length === 0 && wantTags.length === 0) return true;
+      if (wantDecks.length === 0 && wantTags.length === 0) return false;
       if (wantDecks.indexOf(deck.id) !== -1) return true;
       return deck.questions.some((q) => wantTags.some((t) => tagsOf(q).indexOf(t) !== -1));
     });
@@ -1560,7 +1560,7 @@
     }
 
     if (wantDecks.length === 0 && wantTags.length === 0) {
-      decks.forEach((deck) => areas.push({ label: deck.title, kind: "deck", key: deck.id, cards: cardsInDeck(deck) }));
+      return [];
     } else {
       wantDecks.forEach((id) => {
         const deck = decks.find((d) => d.id === id);
@@ -1591,13 +1591,13 @@
   function examScopeEntries(exam) {
     const wantDecks = exam.deckIds || [];
     const wantTags = exam.tags || [];
-    const everything = wantDecks.length === 0 && wantTags.length === 0;
+    if (wantDecks.length === 0 && wantTags.length === 0) return [];
     const out = [];
     loadDecks().forEach((deck) => {
       const deckMatches = wantDecks.indexOf(deck.id) !== -1;
       deck.questions.forEach((q) => {
         const tagMatches = wantTags.some((t) => tagsOf(q).indexOf(t) !== -1);
-        if (everything || deckMatches || tagMatches) out.push({ q, deck });
+        if (deckMatches || tagMatches) out.push({ q, deck });
       });
     });
     return out;
@@ -1717,7 +1717,7 @@
 
   function verdictFor(f) {
     if (f.days < 0) return { tone: "past", line: "This exam has passed." };
-    if (f.total === 0) return { tone: "none", line: "Nothing written for this yet." };
+    if (f.total === 0) return { tone: "none", line: "Nothing linked yet" };
     if (f.projPct >= 95) return { tone: "good", line: "On track" };
     if (f.projPct >= 75) return { tone: "close", line: "Close" };
     return { tone: "behind", line: "Behind" };
@@ -1743,7 +1743,7 @@
         <div class="exam-row-track"><div class="exam-row-fill" style="width:${f.projPct}%"></div></div>
         <div class="exam-row-foot">
           <span class="exam-verdict-chip">${v.line}</span>
-          <span>${f.total ? `${f.projPct}% projected · ${f.total} cards` : "no cards in scope"}</span>
+          <span>${f.total ? `${f.projPct}% projected · ${f.total} cards` : "tap to choose its decks"}</span>
         </div>
       `;
       row.addEventListener("click", () => openExam(exam));
@@ -1800,9 +1800,72 @@
     const count = examScopeEntries({ deckIds: examScopeDraft.deckIds, tags: examScopeDraft.tags }).length;
     const picked = examScopeDraft.deckIds.length + examScopeDraft.tags.length;
     $("#exam-scope-hint").textContent = picked === 0
-      ? `Nothing selected — that covers everything you've written (${count} cards).`
+      ? "Nothing linked yet — pick the decks and topics this exam is actually on."
       : `${count} card${count === 1 ? "" : "s"} in scope.`;
   }
+
+  function toggleDeckOnExam(examId, deckId) {
+    const list = loadExams();
+    const exam = list.find((e) => e.id === examId);
+    if (!exam) return;
+    exam.deckIds = exam.deckIds || [];
+    const i = exam.deckIds.indexOf(deckId);
+    if (i === -1) exam.deckIds.push(deckId); else exam.deckIds.splice(i, 1);
+    saveExams(list);
+  }
+
+  // Which exams this deck feeds is set from the deck, because that's where
+  // you are when you've just written the cards.
+  function renderLinkSheet(deck) {
+    const list = $("#link-sheet-list");
+    const exams = loadExams().filter((e) => daysUntil(e.date) >= 0);
+    list.innerHTML = "";
+    $("#link-sheet-sub").textContent = exams.length
+      ? `Which exams is "${deck.title}" on?`
+      : "No upcoming exams yet — add one from the Exams tab first.";
+
+    exams.forEach((exam) => {
+      const on = (exam.deckIds || []).indexOf(deck.id) !== -1;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "link-row" + (on ? " on" : "");
+      row.innerHTML = `
+        <span class="link-check">${on ? "✓" : ""}</span>
+        <span class="link-body">
+          <span class="link-title">${escapeHtml(exam.title)}</span>
+          <span class="link-sub">${countdownWords(daysUntil(exam.date))}</span>
+        </span>
+      `;
+      row.addEventListener("click", () => {
+        toggleDeckOnExam(exam.id, deck.id);
+        vibrate(8);
+        renderLinkSheet(deck);
+        openDeckSummary(deck);
+        // openDeckSummary swaps screens; keep the sheet up so several can
+        // be ticked in one go.
+        $("#link-sheet-wrap").classList.remove("hidden");
+        $("#link-sheet-wrap").classList.add("open");
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function openLinkSheet() {
+    if (!currentDeck) return;
+    renderLinkSheet(currentDeck);
+    $("#link-sheet-wrap").classList.remove("hidden");
+    requestAnimationFrame(() => $("#link-sheet-wrap").classList.add("open"));
+  }
+
+  function closeLinkSheet() {
+    const wrap = $("#link-sheet-wrap");
+    wrap.classList.remove("open");
+    setTimeout(() => wrap.classList.add("hidden"), 220);
+  }
+
+  $("#summary-link-btn").addEventListener("click", openLinkSheet);
+  $("#link-sheet-close").addEventListener("click", closeLinkSheet);
+  $("#link-sheet-backdrop").addEventListener("click", closeLinkSheet);
 
   function openExamEditor(exam) {
     editingExamId = exam ? exam.id : null;
@@ -1879,7 +1942,7 @@
     verdict.className = "verdict verdict-" + v.tone;
 
     $("#forecast-note").textContent = f.total === 0
-      ? "Write some cards and tag them, or point this exam at a deck."
+      ? "Link the decks and topics this exam covers, and the forecast fills in."
       : f.days < 0
         ? "Kept for the record."
         : f.unreachable
@@ -1901,6 +1964,10 @@
         <div class="ledger-value">${formatNumber(t.raw)}</div>
       </div>
     `).join("");
+
+    const linked = (exam.deckIds || []).length + (exam.tags || []).length > 0;
+    $("#exam-unlinked").classList.toggle("hidden", linked);
+    $("#exam-linked").classList.toggle("hidden", !linked);
 
     const areas = examBreakdown(exam);
     const areaList = $("#exam-areas");
@@ -1940,6 +2007,10 @@
 
     showScreen("screen-exam");
   }
+
+  $("#exam-pick-btn").addEventListener("click", () => {
+    if (currentExam) openExamEditor(currentExam);
+  });
 
   $("#exam-study-btn").addEventListener("click", () => {
     if (!currentExam) return;
@@ -2379,6 +2450,13 @@
 
     const studyButtons = [$("#start-review"), $("#start-essay")];
     const covering = examsCoveringDeck(deck);
+    const upcoming = loadExams().filter((e) => daysUntil(e.date) >= 0);
+    const linkBtn = $("#summary-link-btn");
+    linkBtn.classList.toggle("hidden", upcoming.length === 0);
+    linkBtn.textContent = covering.length
+      ? "Change which exams this counts toward"
+      : "Link this deck to an exam";
+
     const examWrap = $("#summary-exams");
     examWrap.innerHTML = "";
     examWrap.classList.toggle("hidden", covering.length === 0);
