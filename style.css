@@ -225,6 +225,124 @@ button { font-family: inherit; }
   border: 1px solid rgba(193, 74, 55, 0.3);
 }
 
+/* ---------------- Exams ---------------- */
+.today-exam {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 98, 47, 0.35);
+  background: rgba(226, 98, 47, 0.08);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+.today-exam-name { font-weight: 700; font-size: 0.8rem; color: var(--ink); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-exam-days { font-size: 0.72rem; font-weight: 700; color: var(--coral); flex-shrink: 0; }
+.today-exam-pct { font-size: 0.66rem; color: var(--taupe); flex-shrink: 0; }
+
+.exam-empty { text-align: center; padding: 26px 20px 10px; }
+.exam-empty-icon { font-size: 2.4rem; }
+.exam-empty-title { font-family: var(--serif); font-size: 1.25rem; font-weight: 560; margin: 10px 0 6px; color: var(--ink); }
+.exam-empty-text { font-size: 0.8rem; line-height: 1.6; color: var(--taupe); margin: 0 auto; max-width: 34ch; }
+
+.exam-list { display: flex; flex-direction: column; gap: 12px; }
+.exam-row {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  padding: 15px 17px;
+  border-radius: 16px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  box-shadow: 0 3px 10px rgba(120, 88, 30, 0.07);
+  transition: transform 0.16s var(--bounce);
+}
+.exam-row:active { transform: scale(0.985); }
+.exam-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.exam-row-title { font-family: var(--serif); font-size: 1.02rem; font-weight: 560; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exam-row-days { font-size: 0.72rem; font-weight: 700; color: var(--coral); flex-shrink: 0; }
+.exam-row-track { height: 7px; border-radius: 4px; background: rgba(125, 112, 87, 0.15); overflow: hidden; }
+.exam-row-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold-bright), var(--gold)); }
+.exam-row-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 0.66rem; color: var(--taupe); }
+.exam-verdict-chip { font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+
+.exam-good .exam-row-fill { background: linear-gradient(90deg, var(--sage-bright), var(--sage)); }
+.exam-good .exam-verdict-chip { color: var(--sage); background: rgba(63, 132, 89, 0.14); }
+.exam-close .exam-verdict-chip { color: var(--gold-dim); background: rgba(184, 131, 27, 0.15); }
+.exam-behind .exam-row-fill { background: linear-gradient(90deg, var(--coral-bright), var(--coral)); }
+.exam-behind .exam-verdict-chip { color: var(--coral); background: rgba(226, 98, 47, 0.14); }
+.exam-past, .exam-none { opacity: 0.72; }
+.exam-past .exam-verdict-chip, .exam-none .exam-verdict-chip { color: var(--taupe); background: rgba(125, 112, 87, 0.12); }
+
+.exam-hero { text-align: center; padding: 6px 0 4px; }
+.exam-countdown {
+  font-family: var(--serif); font-size: 3.6rem; font-weight: 560; line-height: 1;
+  color: var(--coral); font-variant-numeric: tabular-nums;
+}
+.exam-countdown-cap { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--taupe); margin-top: 6px; }
+.exam-date-line { font-size: 0.8rem; color: var(--taupe); margin-top: 8px; }
+
+.forecast {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  box-shadow: 0 4px 14px rgba(120, 88, 30, 0.07);
+}
+.forecast-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.forecast-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--taupe); }
+.forecast-pct { font-family: var(--serif); font-size: 1.5rem; font-weight: 560; color: var(--ink); }
+.forecast-track { position: relative; height: 12px; border-radius: 7px; background: rgba(125, 112, 87, 0.15); overflow: visible; }
+.forecast-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--gold-bright), var(--gold));
+  transition: width 0.8s cubic-bezier(.2,.8,.2,1); }
+.forecast-now {
+  position: absolute; top: -4px; width: 3px; height: 20px; border-radius: 2px;
+  background: var(--sage); transform: translateX(-1px);
+  transition: left 0.8s cubic-bezier(.2,.8,.2,1);
+}
+.forecast-legend { display: flex; gap: 16px; font-size: 0.64rem; color: var(--taupe); margin-top: 12px; }
+.forecast-legend b { color: var(--ink); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+.dot-now { background: var(--sage); }
+.dot-proj { background: var(--gold); }
+.verdict { margin-top: 14px; font-family: var(--serif); font-size: 1.18rem; font-weight: 560; }
+.verdict-good { color: var(--sage); }
+.verdict-close { color: var(--gold-dim); }
+.verdict-behind { color: var(--coral); }
+.verdict-past, .verdict-none { color: var(--taupe); }
+.forecast-note { font-size: 0.76rem; line-height: 1.6; color: var(--taupe); margin: 8px 0 0; }
+
+.scope-group { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
+.scope-chip {
+  font-size: 0.7rem; font-weight: 600; padding: 7px 12px; border-radius: 20px;
+  border: 1.5px solid var(--hair); background: var(--panel); color: var(--taupe); cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.14s var(--bounce);
+}
+.scope-chip:active { transform: scale(0.94); }
+.scope-chip.active { border-color: var(--teal); background: rgba(31, 143, 146, 0.12); color: var(--teal); }
+
+input[type="date"] { font-family: inherit; }
+
+/* Days remaining, riding on the Exams tab. */
+.tab-countdown {
+  position: absolute; top: -4px; right: -9px;
+  min-width: 16px; padding: 0 4px; height: 15px;
+  border-radius: 9px;
+  font-size: 0.52rem; font-weight: 800; line-height: 15px; text-align: center;
+  color: #fff; background: var(--coral);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
 /* ---------------- Sittings ---------------- */
 .sitting-entry {
   display: flex;

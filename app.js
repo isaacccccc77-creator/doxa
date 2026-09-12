@@ -239,6 +239,7 @@
     p.avatarEmoji = p.avatarEmoji || AVATAR_OPTIONS[0].emoji;
     p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
     p.avatarPhoto = p.avatarPhoto || "";
+    p.exams = Array.isArray(p.exams) ? p.exams : [];
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
     return p;
@@ -1053,11 +1054,36 @@
         catch (e) { return null; }
         master = ctx.createGain();
         master.gain.value = 0;
-        master.connect(ctx.destination);
+
+        // Tame the top end before anything reaches the ears: a shelf cut
+        // above 3.5k and a gentle roll-off, so no scape can turn shrill.
+        const shelf = ctx.createBiquadFilter();
+        shelf.type = "highshelf";
+        shelf.frequency.value = 4000;
+        shelf.gain.value = -9;
+
+        const roll = ctx.createBiquadFilter();
+        roll.type = "lowpass";
+        roll.frequency.value = 8500;
+        roll.Q.value = 0.5;
+
+        // Holds the level steady so a crackle can't jump out at you.
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -26;
+        comp.knee.value = 26;
+        comp.ratio.value = 4;
+        comp.attack.value = 0.015;
+        comp.release.value = 0.35;
+
+        master.connect(shelf);
+        shelf.connect(roll);
+        roll.connect(comp);
+        comp.connect(ctx.destination);
+
         // Permanently in line, so it always has real audio to report on.
         analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
-        master.connect(analyser);
+        comp.connect(analyser);
       }
       // Browsers start the context suspended until a real gesture; every
       // entry point here is behind a tap, so this resumes cleanly.
@@ -1075,6 +1101,22 @@
           const w = Math.random() * 2 - 1;
           last = (last + 0.02 * w) / 1.02;
           d[i] = last * 3.5;
+        }
+      } else if (kind === "pink") {
+        // Pink noise falls 3dB per octave, which is roughly how natural
+        // sound is distributed. White noise has equal energy per hertz, so
+        // most of it lands in the top octaves — that's the hiss.
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < len; i++) {
+          const w = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + w * 0.0555179;
+          b1 = 0.99332 * b1 + w * 0.0750759;
+          b2 = 0.96900 * b2 + w * 0.1538520;
+          b3 = 0.86650 * b3 + w * 0.3104856;
+          b4 = 0.55000 * b4 + w * 0.5329522;
+          b5 = -0.7616 * b5 - w * 0.0168980;
+          d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+          b6 = w * 0.115926;
         }
       } else {
         for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
@@ -1117,21 +1159,6 @@
       voices.push(lfo);
     }
 
-    // One short shaped burst — a crackle, a rail joint, a distant cup.
-    function blip(freq, q, duration, volume, type) {
-      const src = ctx.createBufferSource();
-      src.buffer = noiseBuffer(Math.max(0.08, duration + 0.05), "white");
-      const band = filter(type || "bandpass", freq, q || 3);
-      const g = ctx.createGain();
-      const now = ctx.currentTime;
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), now + 0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-      src.connect(band); band.connect(g); g.connect(master);
-      src.start(now);
-      src.stop(now + duration + 0.06);
-    }
-
     function every(minMs, maxMs, fn) {
       const wait = minMs + Math.random() * (maxMs - minMs);
       const mine = scape;
@@ -1143,55 +1170,139 @@
       }, wait));
     }
 
+    // A soft burst, shaped rather than clicked into existence. A fast
+    // attack is what makes a crackle spiky, so attack is a parameter.
+    function soften(o) {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(Math.max(0.12, o.decay + 0.1), o.source || "pink");
+      const band = filter(o.type || "bandpass", o.freq, o.q || 1.2);
+      const tame = filter("lowpass", o.ceiling || 1600, 0.7);
+      const g = ctx.createGain();
+      const now = ctx.currentTime;
+      const attack = o.attack || 0.02;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(Math.max(0.0002, o.volume), now + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + attack + o.decay);
+      src.connect(band); band.connect(tame); tame.connect(g); g.connect(master);
+      src.start(now);
+      src.stop(now + attack + o.decay + 0.08);
+    }
+
     const BUILD = {
+      // Rain is mostly low-mid: water on glass, not static. Pink noise
+      // rolled off hard at 1.6k, with a brown bed underneath for the body
+      // you feel rather than hear.
       rain() {
-        const b = bed("white", 4);
-        const g = gain(0.5);
-        b.connect(filter("highpass", 760)).connect(filter("lowpass", 6200)).connect(g);
-        g.connect(master);
-        breathe(g.gain, 0.07, 0.13);
-        // Distant weather under the hiss.
-        const low = bed("brown", 4);
-        const lg = gain(0.32);
-        low.connect(filter("lowpass", 190)).connect(lg);
-        lg.connect(master);
-        breathe(lg.gain, 0.04, 0.1);
-      },
-      fire() {
-        const b = bed("brown", 4);
-        const g = gain(0.85);
-        b.connect(filter("lowpass", 430)).connect(g);
-        g.connect(master);
-        breathe(g.gain, 0.12, 0.16);
-        every(90, 520, () => blip(500 + Math.random() * 2200, 2.5,
-          0.03 + Math.random() * 0.07, 0.05 + Math.random() * 0.1));
-      },
-      cafe() {
-        const b = bed("brown", 4);
+        const bedNoise = bed("pink", 9);
+        const shape = filter("lowpass", 2600, 0.6);
         const g = gain(0.6);
-        b.connect(filter("bandpass", 620, 0.8)).connect(g);
-        g.connect(master);
-        breathe(g.gain, 0.09, 0.14);
-        // The occasional cup finding a saucer, a long way off.
-        every(2600, 9000, () => blip(2200 + Math.random() * 2600, 9,
-          0.09, 0.012 + Math.random() * 0.016));
+        bedNoise.connect(shape); shape.connect(g); g.connect(master);
+        breathe(g.gain, 0.06, 0.1);
+        // The filter drifts, so the rain rises and eases like real weather.
+        breathe(shape.frequency, 0.035, 500);
+
+        // The patter itself — a narrow band well below where hiss lives.
+        const patter = bed("pink", 9);
+        const patterBp = filter("bandpass", 1900, 0.65);
+        const pg = gain(0.2);
+        patter.connect(patterBp); patterBp.connect(pg); pg.connect(master);
+        breathe(pg.gain, 0.13, 0.07);
+
+        const body = bed("brown", 9);
+        const bodyLp = filter("lowpass", 300, 0.7);
+        const bg = gain(0.55);
+        body.connect(bodyLp); bodyLp.connect(bg); bg.connect(master);
+        breathe(bg.gain, 0.022, 0.12);
+
+        // Occasional heavier drops on the sill.
+        every(700, 2600, () => soften({
+          freq: 240 + Math.random() * 300, q: 0.9, ceiling: 900,
+          attack: 0.012, decay: 0.1 + Math.random() * 0.1,
+          volume: 0.02 + Math.random() * 0.02, source: "brown",
+        }));
       },
+
+      // A fire is mostly warm roar; the crackles should sit inside it, not
+      // on top. Low, broad, slow to arrive and slow to leave.
+      fire() {
+        const roar = bed("brown", 9);
+        const roarLp = filter("lowpass", 280, 0.6);
+        const g = gain(1.0);
+        roar.connect(roarLp); roarLp.connect(g); g.connect(master);
+        breathe(g.gain, 0.09, 0.14);
+
+        const warmth = bed("pink", 9);
+        const warmLp = filter("lowpass", 700, 0.5);
+        const wg = gain(0.22);
+        warmth.connect(warmLp); warmLp.connect(wg); wg.connect(master);
+        breathe(wg.gain, 0.05, 0.08);
+
+        // Settling embers: quiet, low, rounded.
+        every(260, 1100, () => soften({
+          freq: 190 + Math.random() * 520, q: 1.1, ceiling: 1100,
+          attack: 0.018 + Math.random() * 0.02,
+          decay: 0.14 + Math.random() * 0.22,
+          volume: 0.018 + Math.random() * 0.026,
+          source: "brown",
+        }));
+        // And now and then something shifts in the grate.
+        every(5000, 14000, () => soften({
+          freq: 130 + Math.random() * 160, q: 0.8, ceiling: 600,
+          attack: 0.03, decay: 0.45, volume: 0.05, source: "brown",
+        }));
+      },
+
+      cafe() {
+        const room = bed("brown", 9);
+        const roomBp = filter("bandpass", 380, 0.55);
+        const g = gain(0.8);
+        room.connect(roomBp); roomBp.connect(g); g.connect(master);
+        breathe(g.gain, 0.07, 0.12);
+
+        const murmur = bed("pink", 9);
+        const murmurLp = filter("lowpass", 850, 0.5);
+        const mg = gain(0.3);
+        murmur.connect(murmurLp); murmurLp.connect(mg); mg.connect(master);
+        // Conversation swells and fades across the room.
+        breathe(mg.gain, 0.11, 0.18);
+        breathe(murmurLp.frequency, 0.06, 180);
+
+        // A cup finding a saucer, three tables away.
+        every(4000, 13000, () => soften({
+          freq: 900 + Math.random() * 700, q: 5, ceiling: 2200,
+          attack: 0.006, decay: 0.16, volume: 0.012 + Math.random() * 0.01,
+        }));
+      },
+
       train() {
-        const b = bed("brown", 4);
-        const g = gain(0.95);
-        b.connect(filter("lowpass", 165)).connect(g);
-        g.connect(master);
-        breathe(g.gain, 0.05, 0.1);
-        const hiss = bed("white", 4);
-        const hg = gain(0.06);
-        hiss.connect(filter("bandpass", 1400, 0.7)).connect(hg);
-        hg.connect(master);
-        // Rail joints, in pairs, at roughly line speed.
-        every(1500, 2100, () => {
-          blip(120, 1.4, 0.08, 0.16, "lowpass");
+        const rumble = bed("brown", 9);
+        const rumbleLp = filter("lowpass", 110, 0.8);
+        const g = gain(1.0);
+        rumble.connect(rumbleLp); rumbleLp.connect(g); g.connect(master);
+        breathe(g.gain, 0.04, 0.08);
+
+        const carriage = bed("brown", 9);
+        const carriageBp = filter("bandpass", 220, 0.5);
+        const cg = gain(0.4);
+        carriage.connect(carriageBp); carriageBp.connect(cg); cg.connect(master);
+
+        // Air moving down the carriage — pink and low, never a hiss.
+        const air = bed("pink", 9);
+        const airLp = filter("lowpass", 700, 0.6);
+        const ag = gain(0.1);
+        air.connect(airLp); airLp.connect(ag); ag.connect(master);
+        breathe(ag.gain, 0.03, 0.04);
+
+        // Rail joints, in pairs, at line speed.
+        every(1600, 2200, () => {
+          soften({ freq: 85, q: 0.9, ceiling: 260, type: "lowpass",
+                   attack: 0.014, decay: 0.16, volume: 0.09, source: "brown" });
           timers.push(setTimeout(() => {
-            if (scape === "train") blip(120, 1.4, 0.08, 0.13, "lowpass");
-          }, 170));
+            if (scape === "train") {
+              soften({ freq: 85, q: 0.9, ceiling: 260, type: "lowpass",
+                       attack: 0.014, decay: 0.16, volume: 0.075, source: "brown" });
+            }
+          }, 185));
         });
       },
     };
@@ -1365,6 +1476,390 @@
   }
 
   // ---------------------------------------------------------------
+  // EXAMS: the question no free flashcard app answers — "will I be ready
+  // in time?" Everything here is derived from your own review history;
+  // there is no model of you beyond what you've actually done.
+  //
+  // The model, stated plainly so it can be argued with:
+  //   A card counts as solid once it has been recalled correctly
+  //   SOLID_REPS times, because that's the point the interval passes a
+  //   week and it starts to stick. A card therefore needs
+  //   (SOLID_REPS - reps) more successful reviews. At a success rate of
+  //   p, that costs (SOLID_REPS - reps) / p attempts. Sum that over the
+  //   cards the exam covers, compare against the review slots left
+  //   (days x your pace), and spend them on the cards nearest to solid
+  //   first — which is the order spaced repetition would pick anyway.
+  //
+  // Spacing is a second constraint: you cannot make a brand-new card
+  // solid in one evening no matter how many times you look at it, so a
+  // card also needs enough days for the intervals to play out.
+  // ---------------------------------------------------------------
+  const SOLID_REPS = 3;
+  const READY_TARGET = 0.95;
+  const DEFAULT_PACE = 20;
+  const DEFAULT_SUCCESS = 0.8;
+
+  // Days the schedule needs to carry a card to solid, from where it is.
+  function daysToSolid(reps) {
+    const ladder = [0, 1, 3];  // wait before the 1st, 2nd, 3rd review
+    let days = 0;
+    for (let r = reps; r < SOLID_REPS; r++) days += ladder[Math.min(r, ladder.length - 1)];
+    return days;
+  }
+
+  // How often you actually get a card right, from your own history.
+  function successRate() {
+    const graded = profile.stats.cardsGraded || 0;
+    if (graded < 20) return DEFAULT_SUCCESS;
+    let lapses = 0;
+    loadDecks().forEach((deck) => {
+      for (const qid in deck.mastery) lapses += (deck.mastery[qid].lapses || 0);
+    });
+    return Math.min(0.97, Math.max(0.45, 1 - lapses / graded));
+  }
+
+  // Cards per day, averaged over the days you've actually studied.
+  function dailyPace() {
+    const days = profile.stats.studyDays || 0;
+    const graded = profile.stats.cardsGraded || 0;
+    if (days < 2 || graded < 10) return DEFAULT_PACE;
+    return Math.max(5, Math.round(graded / days));
+  }
+
+  function examScopeEntries(exam) {
+    const wantDecks = exam.deckIds || [];
+    const wantTags = exam.tags || [];
+    const everything = wantDecks.length === 0 && wantTags.length === 0;
+    const out = [];
+    loadDecks().forEach((deck) => {
+      const deckMatches = wantDecks.indexOf(deck.id) !== -1;
+      deck.questions.forEach((q) => {
+        const tagMatches = wantTags.some((t) => tagsOf(q).indexOf(t) !== -1);
+        if (everything || deckMatches || tagMatches) out.push({ q, deck });
+      });
+    });
+    return out;
+  }
+
+  function daysUntil(dateStr) {
+    // Calendar-day difference, so an exam dated today reads 0 and one
+    // dated tomorrow reads 1 — not "however many hours are left".
+    const target = new Date(dateStr + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((target.getTime() - today.getTime()) / 86400000);
+  }
+
+  // Given a pace, how much of the scope ends up solid by exam day.
+  function projectReadiness(cards, days, pace, p) {
+    let solidNow = 0;
+    const wanting = [];
+    cards.forEach((c) => {
+      const reps = Math.min(c.reps, SOLID_REPS);
+      if (reps >= SOLID_REPS) { solidNow++; return; }
+      wanting.push({
+        cost: (SOLID_REPS - reps) / p,
+        needsDays: daysToSolid(reps),
+      });
+    });
+    // Cheapest first: the cards closest to solid are the ones a sensible
+    // schedule would finish off anyway.
+    wanting.sort((a, b) => a.cost - b.cost);
+
+    let budget = Math.max(0, days) * pace;
+    let gained = 0;
+    for (const w of wanting) {
+      if (w.needsDays > days) continue;   // no amount of effort beats the calendar
+      if (budget < w.cost) break;
+      budget -= w.cost;
+      gained++;
+    }
+    const total = cards.length || 1;
+    return {
+      solidNow,
+      projected: solidNow + gained,
+      total: cards.length,
+      nowPct: Math.round((solidNow / total) * 100),
+      projPct: Math.round(((solidNow + gained) / total) * 100),
+    };
+  }
+
+  // The pace that would get you to READY_TARGET, if one exists.
+  function paceForTarget(cards, days, p) {
+    if (days <= 0) return null;
+    let lo = 1, hi = 400, answer = null;
+    for (let i = 0; i < 12; i++) {
+      const mid = Math.ceil((lo + hi) / 2);
+      const r = projectReadiness(cards, days, mid, p);
+      if (r.projPct >= READY_TARGET * 100) { answer = mid; hi = mid - 1; }
+      else { lo = mid + 1; }
+      if (lo > hi) break;
+    }
+    return answer;
+  }
+
+  function forecastFor(exam) {
+    const entries = examScopeEntries(exam);
+    const days = daysUntil(exam.date);
+    const p = successRate();
+    const pace = dailyPace();
+    const cards = entries.map(({ q, deck }) => {
+      const m = getMastery(deck, q.id);
+      return { reps: m ? m.reps || 0 : 0 };
+    });
+    const now = projectReadiness(cards, 0, 0, p);
+    const proj = projectReadiness(cards, days, pace, p);
+    // Worked out even when you're already on track, so the wording can
+    // tell "comfortably" apart from "only just".
+    const needed = paceForTarget(cards, days, p);
+    const unreachable = needed === null && proj.projPct < READY_TARGET * 100;
+    return {
+      entries, days, pace, p,
+      total: cards.length,
+      solidNow: now.solidNow,
+      nowPct: now.nowPct,
+      projPct: proj.projPct,
+      neverSeen: cards.filter((c) => c.reps === 0).length,
+      needed,
+      unreachable,
+    };
+  }
+
+    // ---------------------------------------------------------------
+  // Exam screens: the list, the editor, and the forecast itself.
+  // ---------------------------------------------------------------
+  let editingExamId = null;
+  let currentExam = null;
+  const examScopeDraft = { deckIds: [], tags: [] };
+
+  function loadExams() {
+    return (profile.exams || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  }
+  function saveExams(list) {
+    profile.exams = list;
+    saveProfile(profile);
+  }
+
+  function formatExamDate(dateStr) {
+    return new Date(dateStr + "T12:00:00").toLocaleDateString(undefined, {
+      weekday: "long", day: "numeric", month: "long",
+    });
+  }
+
+  function countdownWords(days) {
+    if (days < 0) return "passed";
+    if (days === 0) return "today";
+    if (days === 1) return "tomorrow";
+    return days + " days";
+  }
+
+  function verdictFor(f) {
+    if (f.days < 0) return { tone: "past", line: "This exam has passed." };
+    if (f.total === 0) return { tone: "none", line: "Nothing written for this yet." };
+    if (f.projPct >= 95) return { tone: "good", line: "On track" };
+    if (f.projPct >= 75) return { tone: "close", line: "Close" };
+    return { tone: "behind", line: "Behind" };
+  }
+
+  function renderExams() {
+    const list = $("#exam-list");
+    const exams = loadExams();
+    list.innerHTML = "";
+    $("#exam-empty").classList.toggle("hidden", exams.length > 0);
+
+    exams.forEach((exam) => {
+      const f = forecastFor(exam);
+      const v = verdictFor(f);
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "exam-row exam-" + v.tone;
+      row.innerHTML = `
+        <div class="exam-row-head">
+          <span class="exam-row-title">${escapeHtml(exam.title)}</span>
+          <span class="exam-row-days">${countdownWords(f.days)}</span>
+        </div>
+        <div class="exam-row-track"><div class="exam-row-fill" style="width:${f.projPct}%"></div></div>
+        <div class="exam-row-foot">
+          <span class="exam-verdict-chip">${v.line}</span>
+          <span>${f.total ? `${f.projPct}% projected · ${f.total} cards` : "no cards in scope"}</span>
+        </div>
+      `;
+      row.addEventListener("click", () => openExam(exam));
+      list.appendChild(row);
+    });
+    updateExamTab();
+  }
+
+  // The soonest exam rides on the tab, so the deadline is never out of sight.
+  function updateExamTab() {
+    const exams = loadExams().filter((e) => daysUntil(e.date) >= 0);
+    const soonest = exams[0];
+    const days = soonest ? daysUntil(soonest.date) : null;
+    $all(".tab-countdown").forEach((el) => {
+      if (days === null || days > 60) { el.classList.add("hidden"); return; }
+      el.textContent = days;
+      el.classList.remove("hidden");
+    });
+  }
+
+  function scopeChip(label, active, onToggle) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "scope-chip" + (active ? " active" : "");
+    chip.textContent = label;
+    chip.addEventListener("click", onToggle);
+    return chip;
+  }
+
+  function renderExamScope() {
+    const decks = loadDecks();
+    const deckWrap = $("#exam-scope-decks");
+    deckWrap.innerHTML = "";
+    decks.forEach((deck) => {
+      const on = examScopeDraft.deckIds.indexOf(deck.id) !== -1;
+      deckWrap.appendChild(scopeChip(deck.title, on, () => {
+        const i = examScopeDraft.deckIds.indexOf(deck.id);
+        if (i === -1) examScopeDraft.deckIds.push(deck.id); else examScopeDraft.deckIds.splice(i, 1);
+        renderExamScope();
+      }));
+    });
+
+    const tagWrap = $("#exam-scope-tags");
+    tagWrap.innerHTML = "";
+    allKnownTags().forEach((tag) => {
+      const on = examScopeDraft.tags.indexOf(tag) !== -1;
+      tagWrap.appendChild(scopeChip("#" + tag, on, () => {
+        const i = examScopeDraft.tags.indexOf(tag);
+        if (i === -1) examScopeDraft.tags.push(tag); else examScopeDraft.tags.splice(i, 1);
+        renderExamScope();
+      }));
+    });
+
+    const count = examScopeEntries({ deckIds: examScopeDraft.deckIds, tags: examScopeDraft.tags }).length;
+    const picked = examScopeDraft.deckIds.length + examScopeDraft.tags.length;
+    $("#exam-scope-hint").textContent = picked === 0
+      ? `Nothing selected — that covers everything you've written (${count} cards).`
+      : `${count} card${count === 1 ? "" : "s"} in scope.`;
+  }
+
+  function openExamEditor(exam) {
+    editingExamId = exam ? exam.id : null;
+    $("#exam-edit-title").textContent = exam ? "Edit exam" : "Add an exam";
+    $("#exam-name").value = exam ? exam.title : "";
+    $("#exam-date").value = exam ? exam.date : "";
+    examScopeDraft.deckIds = exam ? (exam.deckIds || []).slice() : [];
+    examScopeDraft.tags = exam ? (exam.tags || []).slice() : [];
+    $("#exam-delete-btn").classList.toggle("hidden", !exam);
+    renderExamScope();
+    showScreen("screen-exam-edit");
+  }
+
+  $("#exam-add-btn").addEventListener("click", () => openExamEditor(null));
+  $("#exam-edit-btn").addEventListener("click", () => { if (currentExam) openExamEditor(currentExam); });
+
+  $("#exam-save-btn").addEventListener("click", () => {
+    const title = $("#exam-name").value.trim();
+    const date = $("#exam-date").value;
+    if (!title) { toast("Give the exam a name."); return; }
+    if (!date) { toast("Pick a date."); return; }
+    if (daysUntil(date) < 0) { toast("That date has already passed."); return; }
+
+    const list = loadExams();
+    if (editingExamId) {
+      const e = list.find((x) => x.id === editingExamId);
+      if (e) {
+        e.title = title; e.date = date;
+        e.deckIds = examScopeDraft.deckIds.slice();
+        e.tags = examScopeDraft.tags.slice();
+      }
+    } else {
+      list.push({
+        id: "e" + Date.now() + Math.random().toString(36).slice(2, 6),
+        title, date,
+        deckIds: examScopeDraft.deckIds.slice(),
+        tags: examScopeDraft.tags.slice(),
+      });
+    }
+    saveExams(list);
+    toast("Exam saved.");
+    renderExams();
+    showScreen("screen-exams");
+  });
+
+  $("#exam-delete-btn").addEventListener("click", () => {
+    if (!editingExamId) return;
+    if (!confirm("Delete this exam?")) return;
+    saveExams(loadExams().filter((e) => e.id !== editingExamId));
+    editingExamId = null;
+    currentExam = null;
+    renderExams();
+    showScreen("screen-exams");
+  });
+
+  function openExam(exam) {
+    currentExam = exam;
+    const f = forecastFor(exam);
+    const v = verdictFor(f);
+
+    $("#exam-detail-title").textContent = exam.title;
+    $("#exam-countdown").textContent = f.days < 0 ? "—" : f.days;
+    $("#exam-countdown-cap").textContent =
+      f.days < 0 ? "this exam has passed" : f.days === 1 ? "day to go" : "days to go";
+    $("#exam-date-line").textContent = formatExamDate(exam.date);
+
+    $("#forecast-pct").textContent = f.projPct + "%";
+    $("#forecast-fill").style.width = f.projPct + "%";
+    $("#forecast-now").style.left = f.nowPct + "%";
+    $("#forecast-now-pct").textContent = f.nowPct + "%";
+
+    const verdict = $("#forecast-verdict");
+    verdict.textContent = v.line;
+    verdict.className = "verdict verdict-" + v.tone;
+
+    $("#forecast-note").textContent = f.total === 0
+      ? "Write some cards and tag them, or point this exam at a deck."
+      : f.days < 0
+        ? "Kept for the record."
+        : f.unreachable
+          ? "Even at a hard pace there aren't enough days left to make all of this solid — the intervals need time to play out. Narrow what this exam covers, or accept a partial pass."
+          : f.projPct >= 95 && f.needed !== null && f.needed <= f.pace * 0.7
+            ? `Comfortable: your usual ${f.pace} cards a day is well clear of the ${f.needed} a day this needs.`
+            : f.projPct >= 95
+              ? `You get there at your usual ${f.pace} a day, but only just — it needs about ${f.needed}. Missing a couple of days would cost you.`
+              : `At your usual ${f.pace} cards a day you'd reach ${f.projPct}%. About ${f.needed} a day would get you to 95%.`;
+
+    const tiles = [
+      { label: "Cards in scope", raw: f.total, tone: "teal" },
+      { label: "Solid now", raw: f.solidNow, tone: "sage" },
+      { label: "Never seen", raw: f.neverSeen, tone: "coral" },
+    ];
+    $("#exam-stats").innerHTML = tiles.map((t) => `
+      <div class="bento-tile bento-tile-${t.tone} stat-tile">
+        <div class="ledger-label">${t.label}</div>
+        <div class="ledger-value">${formatNumber(t.raw)}</div>
+      </div>
+    `).join("");
+
+    const due = f.entries.filter(({ q, deck }) => isDue(deck, q.id)).length;
+    $("#exam-study-label").textContent = due > 0 ? `Study this exam (${due} due)` : "Study this exam";
+    $("#exam-method-note").textContent =
+      `Worked out from your own history: you get about ${Math.round(f.p * 100)}% of cards right, and average ${f.pace} a day on the days you study. A card counts as solid after ${SOLID_REPS} correct recalls.`;
+
+    showScreen("screen-exam");
+  }
+
+  $("#exam-study-btn").addEventListener("click", () => {
+    if (!currentExam) return;
+    const entries = examScopeEntries(currentExam);
+    if (!entries.length) { toast("No cards in this exam's scope yet."); return; }
+    const due = entries.filter(({ q, deck }) => isDue(deck, q.id));
+    const chosen = (due.length ? due : entries).slice();
+    shuffleArr(chosen);
+    currentDeck = null;
+    beginFlashcardsSession(chosen.slice(0, TODAY_BATCH));
+  });
+
+    // ---------------------------------------------------------------
   // SITTINGS: a bounded stretch of work with a sound to sit inside and a
   // finish line you can see. Every focus app measures minutes, but
   // minutes are the wrong unit for revision — twenty-five minutes of
@@ -1662,7 +2157,22 @@
     });
   }
 
+  function renderExamLine() {
+    const line = $("#today-exam");
+    const upcoming = loadExams().filter((e) => daysUntil(e.date) >= 0)[0];
+    if (!upcoming) { line.classList.add("hidden"); return; }
+    const days = daysUntil(upcoming.date);
+    if (days > 45) { line.classList.add("hidden"); return; }
+    const f = forecastFor(upcoming);
+    line.classList.remove("hidden");
+    line.innerHTML = `<span class="today-exam-name">${escapeHtml(upcoming.title)}</span>` +
+      `<span class="today-exam-days">${countdownWords(days)}</span>` +
+      `<span class="today-exam-pct">${f.total ? f.projPct + "% projected" : "no cards yet"}</span>`;
+    line.onclick = () => { renderExams(); openExam(upcoming); };
+  }
+
   function renderToday() {
+    renderExamLine();
     const card = $("#today-card");
     const entries = allDueEntries();
     const totalCards = allEntries().length;
@@ -1731,6 +2241,7 @@
     renderReminderUI();
     renderTopics();
     updateCupboardPip();
+    updateExamTab();
     const decks = loadDecks();
     const wrap = $("#saved-decks-wrap");
     const list = $("#saved-decks");
@@ -2580,7 +3091,9 @@
   // Tab bar + badge sheet wiring
   // ---------------------------------------------------------------
   function openTab(id) {
-    if (id === "screen-cupboard") renderCupboard(); else renderHome();
+    if (id === "screen-cupboard") renderCupboard();
+    else if (id === "screen-exams") renderExams();
+    else renderHome();
     showScreen(id);
   }
 

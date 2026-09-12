@@ -63,6 +63,8 @@
   </header>
 
   <main class="home-main tabbed-main">
+    <button id="today-exam" class="today-exam hidden"></button>
+
     <section id="today-card" class="today-card hidden">
       <div id="today-due" class="today-state">
         <div class="today-row">
@@ -151,6 +153,9 @@
     <button class="tab" data-tab="screen-home">
       <span class="tab-icon">📖</span><span class="tab-label">Study</span>
     </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
     <button class="tab" data-tab="screen-cupboard">
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
@@ -193,10 +198,110 @@
     <button class="tab" data-tab="screen-home">
       <span class="tab-icon">📖</span><span class="tab-label">Study</span>
     </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
     <button class="tab" data-tab="screen-cupboard">
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
   </nav>
+</section>
+
+<!-- EXAMS -->
+<section id="screen-exams" class="screen">
+  <header class="topbar">
+    <div class="wordmark">Exams</div>
+  </header>
+  <main class="home-main tabbed-main">
+    <div id="exam-empty" class="exam-empty hidden">
+      <div class="exam-empty-icon">📅</div>
+      <h2 class="exam-empty-title">No exams set</h2>
+      <p class="exam-empty-text">Add the date and what it covers, and Doxa will work out whether your current pace gets you there — and what pace would.</p>
+    </div>
+
+    <div id="exam-list" class="exam-list"></div>
+
+    <button id="exam-add-btn" class="btn btn-primary btn-full btn-arrow-cta">
+      <span>Add an exam</span><span class="btn-arrow">→</span>
+    </button>
+  </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
+</section>
+
+<!-- EXAM EDITOR -->
+<section id="screen-exam-edit" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-exams" aria-label="Back">←</button>
+    <div class="wordmark" id="exam-edit-title">Add an exam</div>
+  </header>
+  <main class="home-main">
+    <div class="card-panel">
+      <label class="field-label" for="exam-name">What is it</label>
+      <input id="exam-name" type="text" placeholder="e.g. Physiology Paper 2" maxlength="60" />
+
+      <label class="field-label" for="exam-date">When</label>
+      <input id="exam-date" type="date" />
+
+      <label class="field-label">What it covers <span class="optional">(pick decks, topics, or both)</span></label>
+      <div id="exam-scope-decks" class="scope-group"></div>
+      <div id="exam-scope-tags" class="scope-group"></div>
+      <p class="hint" id="exam-scope-hint">Nothing selected covers everything you've written.</p>
+
+      <button id="exam-save-btn" class="btn btn-primary btn-full">Save exam</button>
+      <button id="exam-delete-btn" class="btn-text hidden">Delete this exam</button>
+    </div>
+  </main>
+</section>
+
+<!-- EXAM DETAIL -->
+<section id="screen-exam" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-exams" aria-label="Back">←</button>
+    <div class="wordmark" id="exam-detail-title">Exam</div>
+    <button id="exam-edit-btn" class="icon-btn" aria-label="Edit exam">✎</button>
+  </header>
+  <main class="home-main">
+    <div class="exam-hero">
+      <div class="exam-countdown" id="exam-countdown">0</div>
+      <div class="exam-countdown-cap" id="exam-countdown-cap">days to go</div>
+      <div class="exam-date-line" id="exam-date-line"></div>
+    </div>
+
+    <div class="forecast">
+      <div class="forecast-head">
+        <span class="forecast-label">Projected readiness</span>
+        <span class="forecast-pct" id="forecast-pct">0%</span>
+      </div>
+      <div class="forecast-track">
+        <div id="forecast-fill" class="forecast-fill"></div>
+        <div id="forecast-now" class="forecast-now"></div>
+      </div>
+      <div class="forecast-legend">
+        <span><i class="dot dot-now"></i> solid now <b id="forecast-now-pct">0%</b></span>
+        <span><i class="dot dot-proj"></i> by exam day</span>
+      </div>
+      <div class="verdict" id="forecast-verdict"></div>
+      <p class="forecast-note" id="forecast-note"></p>
+    </div>
+
+    <h2 class="section-title">The numbers</h2>
+    <div id="exam-stats" class="bento-grid stat-grid"></div>
+
+    <button id="exam-study-btn" class="btn btn-primary btn-full btn-arrow-cta">
+      <span id="exam-study-label">Study this exam</span><span class="btn-arrow">→</span>
+    </button>
+    <p class="hint" id="exam-method-note"></p>
+  </main>
 </section>
 
 <!-- SITTING SETUP -->
