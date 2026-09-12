@@ -62,7 +62,8 @@
     </div>
   </header>
 
-  <main class="home-main tabbed-main">
+  <main class="home-main tabbed-main home-dash">
+    <div class="home-col home-col-main">
     <button id="today-exam" class="today-exam hidden"></button>
 
     <section id="today-card" class="today-card hidden">
@@ -91,15 +92,9 @@
       </div>
     </section>
 
-    <button id="open-sitting" class="sitting-entry">
-      <span class="sitting-entry-icon" id="sitting-entry-icon">🕯</span>
-      <span class="sitting-entry-text">
-        <span class="sitting-entry-title">Begin a sitting</span>
-        <span class="sitting-entry-sub">Pick a sound and a number of cards, then settle in.</span>
-      </span>
-      <span class="btn-arrow">→</span>
-    </button>
+    </div>
 
+    <div class="home-col home-col-side">
     <div class="ledger bento-grid">
       <div class="ledger-item bento-tile bento-tile-gold">
         <div class="ledger-label">Streak</div>
@@ -130,6 +125,9 @@
       <div id="reminder-switch" class="switch" role="switch" aria-checked="false" tabindex="0"></div>
     </div>
 
+    </div>
+
+    <div class="home-col home-col-main home-col-tail">
     <div class="card-panel">
       <label class="field-label" for="deck-title">Deck name <span class="optional">(optional)</span></label>
       <input id="deck-title" type="text" placeholder="Biology — Chapter 4" maxlength="60" />
@@ -148,6 +146,7 @@
       <h2 class="section-title">Your decks</h2>
       <div id="saved-decks" class="deck-list"></div>
     </div>
+    </div>
   </main>
   <nav class="tabbar">
     <button class="tab" data-tab="screen-home">
@@ -155,6 +154,9 @@
     </button>
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
     <button class="tab" data-tab="screen-cupboard">
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
@@ -201,6 +203,9 @@
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
     </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
+    </button>
     <button class="tab" data-tab="screen-cupboard">
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
@@ -231,6 +236,9 @@
     </button>
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
     <button class="tab" data-tab="screen-cupboard">
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
@@ -316,19 +324,22 @@
   </main>
 </section>
 
-<!-- SITTING SETUP -->
-<section id="screen-sitting" class="screen">
+<!-- ROOM: how the place looks and sounds, and where a sitting starts -->
+<section id="screen-room" class="screen">
   <header class="topbar">
-    <button class="icon-btn back-btn" data-target="screen-home" aria-label="Back">←</button>
-    <div class="wordmark">A sitting</div>
+    <div class="wordmark">Your room</div>
   </header>
-  <main class="home-main">
-    <p class="sitting-blurb">A fixed number of cards, a sound to sit inside, and a finish line you can see. Nothing leaves this device.</p>
+  <main class="home-main tabbed-main">
+    <p class="sitting-blurb">Set the light and the sound, then sit down to a fixed number of cards. All of it stays on this device.</p>
+
+    <h2 class="section-title">Light</h2>
+    <p class="section-note" id="theme-note"></p>
+    <div id="theme-grid" class="theme-grid"></div>
 
     <h2 class="section-title">Sound</h2>
     <div id="scape-grid" class="scape-grid"></div>
 
-    <h2 class="section-title">How many cards</h2>
+    <h2 class="section-title">Sit down to</h2>
     <div id="target-row" class="target-row"></div>
 
     <button id="sitting-begin" class="btn btn-primary btn-full btn-arrow-cta">
@@ -336,6 +347,20 @@
     </button>
     <p class="hint" id="sitting-hint"></p>
   </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
 </section>
 
 <!-- DECK SUMMARY -->
@@ -381,8 +406,8 @@
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Back">←</button>
     <div class="wordmark" id="manage-title">Manage cards</div>
   </header>
-  <main class="home-main">
-    <div class="card-panel" id="card-editor">
+  <main class="home-main manage-main">
+    <div class="card-panel manage-editor" id="card-editor">
       <div class="kind-picker" role="group" aria-label="What kind of card?">
         <button type="button" class="kind-btn" data-kind="quick">
           <span class="kind-icon">⚡</span>
@@ -433,12 +458,11 @@
       <button id="card-cancel-btn" class="btn-text hidden">Cancel edit</button>
     </div>
 
-    <div>
+    <div class="manage-list-col">
       <h2 class="section-title" id="manage-count-label">0 cards</h2>
       <div id="manage-card-list" class="deck-list"></div>
+      <button id="finish-deck-btn" class="btn btn-primary btn-full finish-deck-btn hidden">🎉 Finish deck</button>
     </div>
-
-    <button id="finish-deck-btn" class="btn btn-primary btn-full finish-deck-btn hidden">🎉 Finish deck</button>
   </main>
 </section>
 

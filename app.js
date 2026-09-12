@@ -240,6 +240,7 @@
     p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
     p.avatarPhoto = p.avatarPhoto || "";
     p.exams = Array.isArray(p.exams) ? p.exams : [];
+    p.theme = p.theme || "parchment";
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
     return p;
@@ -1024,6 +1025,117 @@
   // file. Filtered noise and a handful of scheduled pops get you a long
   // way, and they never loop audibly because nothing is a loop.
   // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  // THEMES: five palettes, plus one that follows the clock. Auto isn't a
+  // gimmick — a screen that stays bright at midnight is the reason people
+  // stop revising in bed, and one that dims on its own doesn't need
+  // remembering.
+  // ---------------------------------------------------------------
+  const THEMES = [
+    { id: "parchment", label: "Parchment", note: "Warm paper, the default",
+      swatch: ["#faf3e6", "#e6a83c", "#b8831b"], bar: "#faf3e6" },
+    { id: "blossom", label: "Blossom", note: "Early light, pink",
+      swatch: ["#fdf1f3", "#e87d9c", "#c1526f"], bar: "#fdf1f3" },
+    { id: "forest", label: "Forest", note: "Cool green, easy going",
+      swatch: ["#eff4ea", "#6da762", "#477c40"], bar: "#eff4ea" },
+    { id: "dark", label: "Dark", note: "Warm and low, for evenings",
+      swatch: ["#191512", "#f2bd62", "#d9a03f"], bar: "#191512" },
+    { id: "midnight", label: "Midnight", note: "Cool and dim, for late",
+      swatch: ["#0f121e", "#b2c0f9", "#8ea4f2"], bar: "#0f121e" },
+  ];
+
+  // What the clock maps to. Dawn is pink, the working day is paper, the
+  // afternoon cools off, the evening warms down, the small hours go dim.
+  const THEME_CLOCK = [
+    { until: 5, id: "midnight" },
+    { until: 8, id: "blossom" },
+    { until: 16, id: "parchment" },
+    { until: 19, id: "forest" },
+    { until: 22, id: "dark" },
+    { until: 24, id: "midnight" },
+  ];
+
+  function themeForHour(hour) {
+    for (const slot of THEME_CLOCK) if (hour < slot.until) return slot.id;
+    return "parchment";
+  }
+
+  function themeById(id) {
+    return THEMES.find((t) => t.id === id) || THEMES[0];
+  }
+
+  function resolvedTheme() {
+    return profile.theme === "auto" ? themeForHour(new Date().getHours()) : profile.theme;
+  }
+
+  function applyTheme() {
+    const id = resolvedTheme();
+    document.documentElement.setAttribute("data-theme", id);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", themeById(id).bar);
+  }
+
+  // Auto has to keep up with the clock without being asked. Checking on
+  // return to the app covers the case that matters: you left in daylight
+  // and came back at midnight.
+  function watchAutoTheme() {
+    setInterval(() => { if (profile.theme === "auto") applyTheme(); }, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && profile.theme === "auto") applyTheme();
+    });
+  }
+
+  function renderThemeGrid() {
+    const grid = $("#theme-grid");
+    grid.innerHTML = "";
+    const auto = profile.theme === "auto";
+    const live = resolvedTheme();
+
+    $("#theme-note").textContent = auto
+      ? `Following the clock — right now that's ${themeById(live).label.toLowerCase()}.`
+      : "Pick one, or let it follow the time of day.";
+
+    const autoBtn = document.createElement("button");
+    autoBtn.type = "button";
+    autoBtn.className = "theme-btn theme-auto" + (auto ? " active" : "");
+    autoBtn.dataset.theme = "auto";
+    autoBtn.innerHTML = `
+      <span class="theme-swatch theme-swatch-auto">
+        <i style="background:#fdf1f3"></i><i style="background:#faf3e6"></i>
+        <i style="background:#eff4ea"></i><i style="background:#191512"></i>
+        <i style="background:#0f121e"></i>
+      </span>
+      <span class="theme-label">Follow the clock</span>
+      <span class="theme-note">Changes as the day does</span>
+    `;
+    autoBtn.addEventListener("click", () => setTheme("auto"));
+    grid.appendChild(autoBtn);
+
+    THEMES.forEach((t) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "theme-btn" + (!auto && profile.theme === t.id ? " active" : "");
+      // Also what the theme blocks in the stylesheet key off, so the card
+      // paints itself in the palette it is offering.
+      btn.dataset.theme = t.id;
+      btn.innerHTML = `
+        <span class="theme-swatch">${t.swatch.map((c) => `<i style="background:${c}"></i>`).join("")}</span>
+        <span class="theme-label">${escapeHtml(t.label)}</span>
+        <span class="theme-note">${escapeHtml(t.note)}</span>
+      `;
+      btn.addEventListener("click", () => setTheme(t.id));
+      grid.appendChild(btn);
+    });
+  }
+
+  function setTheme(id) {
+    profile.theme = id;
+    saveProfile(profile);
+    applyTheme();
+    renderThemeGrid();
+    vibrate(8);
+  }
+
   const SOUNDSCAPES = [
     { id: "silence", label: "Silence", icon: "🔕", note: "Just you and the cards" },
     { id: "rain", label: "Rain", icon: "🌧", note: "Steady, against the window" },
@@ -2105,14 +2217,12 @@
           : "All of these are due.";
   }
 
-  function openSitting() {
+  function renderRoom() {
+    renderThemeGrid();
     renderScapeGrid();
     renderTargetRow();
     updateSittingHint();
-    showScreen("screen-sitting");
   }
-
-  $("#open-sitting").addEventListener("click", openSitting);
 
   // Due first, then cards you're not due to see — a sitting you asked for
   // shouldn't end early just because your queue is short.
@@ -3309,6 +3419,7 @@
   function openTab(id) {
     if (id === "screen-cupboard") renderCupboard();
     else if (id === "screen-exams") renderExams();
+    else if (id === "screen-room") renderRoom();
     else renderHome();
     showScreen(id);
   }
@@ -3353,7 +3464,10 @@
     const canvas = $("#confetti-canvas");
     if (!canvas.width) resizeConfettiCanvas();
     const dpr = window.devicePixelRatio || 1;
-    const colors = ["#a3781f", "#c99a3a", "#4c6b47", "#8f4235"];
+    const themed = getComputedStyle(document.documentElement).getPropertyValue("--confetti");
+    const colors = themed
+      ? themed.split(",").map((c) => c.trim()).filter(Boolean)
+      : ["#a3781f", "#c99a3a", "#4c6b47", "#8f4235"];
     const cx = canvas.width / 2;
     const n = count || 24;
     for (let i = 0; i < n; i++) {
@@ -3517,6 +3631,8 @@
   // ---------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------
+  applyTheme();
+  watchAutoTheme();
   resizeConfettiCanvas();
 
   // Some browsers refuse IndexedDB outright (Firefox on a file:// page,
