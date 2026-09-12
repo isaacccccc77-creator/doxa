@@ -19,6 +19,11 @@
 <canvas id="confetti-canvas"></canvas>
 <div id="toast" class="toast" aria-live="polite"></div>
 
+<button id="sound-dock" class="sound-dock hidden" type="button" aria-label="Stop the sound">
+  <span class="sound-dock-icon" id="sound-dock-icon">🌧</span>
+  <span class="sound-dock-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+</button>
+
 <!-- LOGIN / PROFILE SETUP -->
 <section id="screen-login" class="screen">
   <header class="topbar">
@@ -155,6 +160,9 @@
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
     </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
@@ -203,6 +211,9 @@
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
     </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
@@ -236,6 +247,9 @@
     </button>
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
     </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
@@ -344,10 +358,11 @@
   <main class="home-main">
     <p class="sitting-blurb">Cards show you the question with the answer a tap away. An exam doesn't. This builds a paper from your own cards, runs a clock, and hides every answer until you've finished — then you mark it yourself.</p>
 
-    <h2 class="section-title">How long a paper</h2>
-    <div id="paper-size-row" class="target-row"></div>
+    <h2 class="section-title">How long have you got</h2>
+    <div id="paper-time-row" class="target-row"></div>
 
     <div class="paper-plan" id="paper-plan"></div>
+    <p class="hint hidden" id="paper-thin"></p>
 
     <button id="paper-begin" class="btn btn-primary btn-full btn-arrow-cta">
       <span id="paper-begin-label">Begin the paper</span><span class="btn-arrow">→</span>
@@ -432,6 +447,54 @@
 </section>
 
 <!-- ROOM: how the place looks and sounds, and where a sitting starts -->
+<!-- PAPERS: pick what to be tested on, and how long you have -->
+<section id="screen-papers" class="screen">
+  <header class="topbar">
+    <div class="wordmark">Papers</div>
+  </header>
+  <main class="home-main tabbed-main">
+    <p class="sitting-blurb">A card shows you the question with the answer a tap away. An exam doesn't. Pick what to be tested on, give yourself a clock, and write it cold — then mark your own answers against the card.</p>
+
+    <div id="papers-empty" class="exam-empty hidden">
+      <div class="exam-empty-icon">📝</div>
+      <p>Write some cards first. A paper is drawn from what you've already made.</p>
+    </div>
+
+    <div id="papers-exam-wrap" class="hidden">
+      <h2 class="section-title">By exam</h2>
+      <p class="section-note">Draws across everything the exam covers.</p>
+      <div id="papers-exams" class="paper-source-list"></div>
+    </div>
+
+    <div id="papers-deck-wrap" class="hidden">
+      <h2 class="section-title">By deck</h2>
+      <div id="papers-decks" class="paper-source-list"></div>
+    </div>
+
+    <div id="papers-recent-wrap" class="hidden">
+      <h2 class="section-title">Papers you've sat</h2>
+      <div id="papers-recent" class="paper-history"></div>
+    </div>
+  </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
+</section>
+
 <section id="screen-room" class="screen">
   <header class="topbar">
     <div class="wordmark">Your room</div>
@@ -468,6 +531,9 @@
     </button>
     <button class="tab" data-tab="screen-exams">
       <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
     </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
@@ -590,7 +656,6 @@
   <header class="topbar">
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Exit">←</button>
     <div class="progress-track"><div id="flash-progress" class="progress-fill"></div></div>
-    <button id="flash-sound-btn" class="icon-btn hidden" aria-label="Mute sound">🔊</button>
     <button id="flash-shuffle" class="icon-btn" aria-label="Shuffle">↻</button>
   </header>
   <main class="flash-main">

@@ -180,6 +180,7 @@
     $all(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
     $all(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === id));
     window.scrollTo(0, 0);
+    updateSoundDock();
     if (id === "screen-home") {
       navGuardActive = false;
     } else if (!navGuardActive) {
@@ -187,6 +188,22 @@
       try { history.pushState({ doxaGuard: true }, ""); } catch (e) {}
     }
   }
+  // Screens that carry a tab bar; the dock has to sit above it.
+  const TABBED = ["screen-home", "screen-exams", "screen-papers", "screen-room", "screen-cupboard"];
+
+  function updateSoundDock() {
+    const dock = $("#sound-dock");
+    if (!dock) return;
+    const playing = Ambience.current() !== "silence";
+    dock.classList.toggle("hidden", !playing);
+    if (!playing) return;
+    const sc = scapeById(Ambience.current());
+    $("#sound-dock-icon").textContent = sc.icon;
+    dock.setAttribute("aria-label", `Stop the ${sc.label.toLowerCase()}`);
+    const active = $(".screen.active");
+    dock.classList.toggle("above-tabs", !!active && TABBED.indexOf(active.id) !== -1);
+  }
+
   window.addEventListener("popstate", () => {
     navGuardActive = false;
     endSitting(false);
@@ -250,7 +267,7 @@
     p.avatarPhoto = p.avatarPhoto || "";
     p.exams = Array.isArray(p.exams) ? p.exams : [];
     p.theme = p.theme || "parchment";
-    p.paperSize = p.paperSize || 10;
+    p.paperMinutes = p.paperMinutes || 15;
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
     p.sfx = p.sfx !== false;
@@ -1155,16 +1172,19 @@
     { id: "train", label: "Night train", icon: "🚂", note: "Rumble and rails" },
   ];
 
-  // D5 · F#5 · A5 · D6 — a major arpeggio landing on the octave, which is
-  // the shape of nearly every "well done" sound you've ever heard. Quick
-  // enough to be over before it's annoying, with the last note left to ring.
+  // A4 · C#5 · E5 · A5 — a major arpeggio landing on the octave, which is
+  // the shape of nearly every "well done" sound you've ever heard. A fourth
+  // lower than a glockenspiel would put it, with only a trace of FM, so it
+  // reads as a felt mallet on wood rather than a struck bar.
   const FANFARE = [
-    { f: 587.33, t: 0.000, level: 0.16, decay: 0.85, ratio: 2.0, index: 2.8, pan: -0.35 },
-    { f: 739.99, t: 0.075, level: 0.16, decay: 0.85, ratio: 2.0, index: 2.6, pan: -0.14 },
-    { f: 880.00, t: 0.150, level: 0.17, decay: 0.95, ratio: 2.0, index: 2.4, pan: 0.14 },
-    { f: 1174.66, t: 0.230, level: 0.20, decay: 1.90, ratio: 2.0, index: 2.2, pan: 0.00 },
-    // The fifth under the landing note, quiet, so it arrives as a chord.
-    { f: 880.00, t: 0.240, level: 0.09, decay: 1.70, ratio: 2.0, index: 1.8, pan: -0.22 },
+    { f: 440.00, t: 0.000, level: 0.17, decay: 1.00, ratio: 2.0, index: 1.1, pan: -0.32 },
+    { f: 554.37, t: 0.080, level: 0.17, decay: 1.00, ratio: 2.0, index: 1.0, pan: -0.13 },
+    { f: 659.25, t: 0.160, level: 0.18, decay: 1.10, ratio: 2.0, index: 0.9, pan: 0.13 },
+    { f: 880.00, t: 0.245, level: 0.20, decay: 1.75, ratio: 2.0, index: 0.8, pan: 0.00 },
+    // The third and the fifth under the landing note, quiet, so it arrives
+    // as a chord rather than a run that stops.
+    { f: 659.25, t: 0.255, level: 0.10, decay: 1.60, ratio: 2.0, index: 0.7, pan: -0.20 },
+    { f: 554.37, t: 0.265, level: 0.07, decay: 1.50, ratio: 2.0, index: 0.6, pan: 0.20 },
   ];
 
   const Ambience = (function () {
@@ -1253,7 +1273,7 @@
       modDepth.connect(carrier.frequency);
 
       amp.gain.setValueAtTime(0.0001, at);
-      amp.gain.exponentialRampToValueAtTime(level, at + 0.008);
+      amp.gain.exponentialRampToValueAtTime(level, at + 0.022);
       amp.gain.exponentialRampToValueAtTime(0.0001, at + decay);
 
       carrier.connect(amp);
@@ -1300,15 +1320,22 @@
       const dry = ctx.createGain();
       dry.gain.value = 0.85;
       const wet = ctx.createGain();
-      wet.gain.value = 0.3;
+      wet.gain.value = 0.36;
       const room = ctx.createConvolver();
-      room.buffer = impulse(1.9, 3.0, 0.32);
+      room.buffer = impulse(2.0, 3.2, 0.24);
 
-      // Sweet, never sharp — the same rule the soundscapes follow.
+      // Sweet, never sharp — the same rule the soundscapes follow. A shelf
+      // off the top and a gentle roll-off above it: this is most of what
+      // separates a warm chime from a bright one.
       const tame = ctx.createBiquadFilter();
       tame.type = "highshelf";
-      tame.frequency.value = 6500;
-      tame.gain.value = -4;
+      tame.frequency.value = 3200;
+      tame.gain.value = -5;
+
+      const roll = ctx.createBiquadFilter();
+      roll.type = "lowpass";
+      roll.frequency.value = 7200;
+      roll.Q.value = 0.5;
 
       const out = ctx.createDynamicsCompressor();
       out.threshold.value = -15;
@@ -1325,9 +1352,10 @@
       // The compressor holds the peaks down; this puts the level back so
       // the chime carries over a phone speaker without ever clipping.
       const makeup = ctx.createGain();
-      makeup.gain.value = 2.3;
+      makeup.gain.value = 2.05;
 
-      tame.connect(out);
+      tame.connect(roll);
+      roll.connect(out);
       out.connect(makeup);
       makeup.connect(ctx.destination);
       if (analyser) makeup.connect(analyser);
@@ -1348,21 +1376,21 @@
       const body = ctx.createOscillator();
       const bodyGain = ctx.createGain();
       body.type = "sine";
-      body.frequency.value = 146.83;
-      const bt = t0 + 0.2;
+      body.frequency.value = 220;
+      const bt = t0 + 0.215;
       bodyGain.gain.setValueAtTime(0.0001, bt);
-      bodyGain.gain.exponentialRampToValueAtTime(0.055, bt + 0.05);
-      bodyGain.gain.exponentialRampToValueAtTime(0.0001, bt + 1.3);
+      bodyGain.gain.exponentialRampToValueAtTime(0.055, bt + 0.07);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, bt + 1.5);
       body.connect(bodyGain); bodyGain.connect(bus);
-      body.start(bt); body.stop(bt + 1.4);
+      body.start(bt); body.stop(bt + 1.6);
 
       // Glitter: three very quiet, very short strikes two octaves up,
       // scattered in time and pan. It's the difference between a sound
       // that was made and one that was generated.
-      for (let i = 0; i < 3; i++) {
-        const at = t0 + 0.26 + i * 0.055 + Math.random() * 0.03;
-        bell(bus, at, 2349.32 * (1 + (Math.random() - 0.5) * 0.03),
-             0.022, 0.5, 3.4, 1.6, (Math.random() - 0.5) * 1.2);
+      for (let i = 0; i < 2; i++) {
+        const at = t0 + 0.27 + i * 0.07 + Math.random() * 0.03;
+        bell(bus, at, 1760 * (1 + (Math.random() - 0.5) * 0.03),
+             0.013, 0.55, 3.0, 0.7, (Math.random() - 0.5) * 1.2);
       }
     }
 
@@ -1626,6 +1654,17 @@
         setTimeout(() => {
           dying.forEach((v) => { try { v.stop(); } catch (e) {} try { v.disconnect(); } catch (e) {} });
         }, 600);
+      },
+
+      // Hold everything where it is while the tab is in the background,
+      // rather than letting the loops run on unheard.
+      suspend() {
+        if (ctx && ctx.state === "running") { try { ctx.suspend(); } catch (e) {} }
+      },
+      resume() {
+        if (ctx && ctx.state === "suspended" && scape !== "silence") {
+          try { ctx.resume(); } catch (e) {}
+        }
       },
 
       setMuted(value) {
@@ -2017,12 +2056,12 @@
   // already predicts your readiness from review history, the score is the
   // first honest check on that prediction it has ever had.
   // ---------------------------------------------------------------
-  const PAPER_SIZES = [6, 10, 16];
+  const PAPER_MINUTES = [10, 15, 25, 40, 60];
   const SECONDS_SHORT = 90;
   const SECONDS_ESSAY = 360;
 
   const paper = {
-    exam: null, questions: [], index: 0, endsAt: 0, tick: null,
+    exam: null, from: null, questions: [], index: 0, endsAt: 0, tick: null,
     marking: 0, marks: [], startedAt: 0,
   };
 
@@ -2075,26 +2114,51 @@
     return out;
   }
 
+  function buildPaperForMinutes(source, minutes) {
+    const budget = minutes * 60;
+    // A generous spread first, still dealt round-robin across the areas.
+    const spread = buildPaper(source, 400);
+    const essays = spread.filter((e) => inferKind(e.q) === "essay");
+    const shorts = spread.filter((e) => inferKind(e.q) !== "essay");
+
+    // A long question costs four short ones. Filling the clock in whatever
+    // order the cards came out made the same ten minutes come back as
+    // three questions or as six, depending on where the essays landed.
+    // Long questions get a fixed share of the clock; shorts fill the rest.
+    const essayShare = shorts.length ? budget * 0.4 : budget;
+    const out = [];
+    let used = 0;
+    for (const e of essays) {
+      if (used + SECONDS_ESSAY > essayShare) break;
+      out.push(e); used += SECONDS_ESSAY;
+    }
+    for (const e of shorts) {
+      if (used + SECONDS_SHORT > budget) break;
+      out.push(e); used += SECONDS_SHORT;
+    }
+    // A clock too short for even one question still gets one.
+    if (!out.length && spread.length) out.push(spread[0]);
+    // Deal them out again so the long ones aren't all at the front.
+    return shuffleArr(out);
+  }
+
   function renderPaperSetup() {
     const source = paper.source;
-    const scope = source.areas.reduce((n, a) => n + a.cards.length, 0);
-    const row = $("#paper-size-row");
+    const row = $("#paper-time-row");
     row.innerHTML = "";
-    const sizes = PAPER_SIZES.filter((n) => n <= scope);
-    if (!sizes.length) sizes.push(scope);
 
-    if (!profile.paperSize || sizes.indexOf(profile.paperSize) === -1) {
-      profile.paperSize = sizes[Math.min(1, sizes.length - 1)];
+    if (PAPER_MINUTES.indexOf(profile.paperMinutes) === -1) {
+      profile.paperMinutes = PAPER_MINUTES[1];
     }
 
-    sizes.forEach((n) => {
+    PAPER_MINUTES.forEach((n) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "target-btn" + (n === profile.paperSize ? " active" : "");
-      btn.dataset.size = n;
-      btn.innerHTML = `<span class="target-num">${n}</span><span class="target-cap">questions</span>`;
+      btn.className = "target-btn" + (n === profile.paperMinutes ? " active" : "");
+      btn.dataset.minutes = n;
+      btn.innerHTML = `<span class="target-num">${n}</span><span class="target-cap">min</span>`;
       btn.addEventListener("click", () => {
-        profile.paperSize = n;
+        profile.paperMinutes = n;
         saveProfile(profile);
         renderPaperSetup();
         vibrate(8);
@@ -2105,35 +2169,118 @@
     // Built once and kept, so the paper you are shown the plan for is the
     // paper you actually sit. Rebuilding on Begin drew a fresh random
     // sample and the promised time no longer matched the clock.
-    const draft = buildPaper(source, profile.paperSize);
+    const draft = buildPaperForMinutes(source, profile.paperMinutes);
     paper.draft = draft;
     const essays = draft.filter((e) => inferKind(e.q) === "essay").length;
-    const mins = Math.max(1, Math.round(paperSeconds(draft) / 60));
+    const fills = Math.round(paperSeconds(draft) / 60);
+    const short = draft.length - essays;
     $("#paper-plan").innerHTML = `
-      <div class="plan-row"><span>${draft.length} question${draft.length === 1 ? "" : "s"}</span><span>${essays} long, ${draft.length - essays} short</span></div>
-      <div class="plan-row"><span>Time allowed</span><span>${mins} minutes</span></div>
+      <div class="plan-row"><span>${draft.length} question${draft.length === 1 ? "" : "s"}</span><span>${essays} long, ${short} short</span></div>
+      <div class="plan-row"><span>On the clock</span><span>${profile.paperMinutes} minutes</span></div>
       <div class="plan-row"><span>Drawn from</span><span>${escapeHtml(source.title)}</span></div>
     `;
-    $("#paper-begin-label").textContent = `Begin — ${mins} minutes`;
+    // If the deck ran out before the time did, say so rather than starting
+    // a 40-minute clock over six questions.
+    const thin = fills < profile.paperMinutes * 0.6;
+    $("#paper-thin").classList.toggle("hidden", !thin);
+    if (thin) {
+      $("#paper-thin").textContent =
+        `There are only ${draft.length} question${draft.length === 1 ? "" : "s"} to draw here — about ${Math.max(1, fills)} minutes' worth. The clock will still run for ${profile.paperMinutes}.`;
+    }
+    $("#paper-begin-label").textContent = `Begin — ${profile.paperMinutes} minutes`;
   }
 
-  function openPaperSetup(source) {
+  function openPaperSetup(source, from) {
     if (!source) return;
     const scope = source.areas.reduce((n, a) => n + a.cards.length, 0);
     if (!scope) { toast("Nothing to draw a paper from yet."); return; }
     paper.source = source;
     paper.exam = source.exam;
+    paper.from = from || null;
     renderPaperSetup();
     showScreen("screen-paper-setup");
   }
 
+  // ---------------------------------------------------------------
+  // PAPERS TAB: papers used to be a button buried in a deck, which is why
+  // nobody found them. This is the front door — pick what to be tested on,
+  // set your own clock, sit it.
+  // ---------------------------------------------------------------
+  function paperSourceRow(title, meta, badge) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "paper-source";
+    btn.innerHTML = `
+      <span class="paper-source-main">
+        <span class="paper-source-title">${escapeHtml(title)}</span>
+        <span class="paper-source-meta">${escapeHtml(meta)}</span>
+      </span>
+      ${badge ? `<span class="paper-source-badge">${escapeHtml(badge)}</span>` : ""}
+      <span class="paper-source-go" aria-hidden="true">→</span>
+    `;
+    return btn;
+  }
+
+  function renderPapers() {
+    const decks = loadDecks().filter((d) => d.questions.length > 0);
+    const exams = loadExams();
+
+    const examRows = $("#papers-exams");
+    const scoped = exams.filter((e) => examBreakdown(e).some((a) => a.total > 0));
+    examRows.innerHTML = "";
+    scoped.forEach((exam) => {
+      const areas = examBreakdown(exam);
+      const cards = areas.reduce((n, a) => n + a.total, 0);
+      const f = forecastFor(exam);
+      const row = paperSourceRow(
+        exam.title,
+        `${cards} card${cards === 1 ? "" : "s"} across ${areas.length} area${areas.length === 1 ? "" : "s"}`,
+        countdownWords(f.days));
+      row.addEventListener("click", () => openPaperSetup(paperSourceFromExam(exam), "screen-papers"));
+      examRows.appendChild(row);
+    });
+    $("#papers-exam-wrap").classList.toggle("hidden", scoped.length === 0);
+
+    const deckRows = $("#papers-decks");
+    deckRows.innerHTML = "";
+    decks.forEach((deck) => {
+      const row = paperSourceRow(
+        deck.title,
+        `${deck.questions.length} card${deck.questions.length === 1 ? "" : "s"} · ${deckMasteryPct(deck)}% solid`);
+      row.addEventListener("click", () => openPaperSetup(paperSourceFromDeck(deck), "screen-papers"));
+      deckRows.appendChild(row);
+    });
+    $("#papers-deck-wrap").classList.toggle("hidden", decks.length === 0);
+    $("#papers-empty").classList.toggle("hidden", decks.length > 0);
+
+    // Every paper that has been sat, newest first. Papers are recorded on
+    // the exam they were drawn from, so only those have a history.
+    const history = [];
+    exams.forEach((exam) => {
+      (exam.papers || []).forEach((rec) => history.push({ rec, title: exam.title }));
+    });
+    history.sort((a, b) => b.rec.at - a.rec.at);
+    const recent = history.slice(0, 6);
+    $("#papers-recent").innerHTML = recent.map(({ rec, title }) => `
+      <div class="paper-hist-row">
+        <span class="paper-hist-main">
+          <span class="paper-hist-title">${escapeHtml(title)}</span>
+          <span class="paper-hist-meta">${timeAgo(rec.at)} · ${rec.minutes} min</span>
+        </span>
+        <span class="paper-hist-pct">${rec.pct}%</span>
+      </div>
+    `).join("");
+    $("#papers-recent-wrap").classList.toggle("hidden", recent.length === 0);
+  }
+
   $("#start-paper").addEventListener("click", () => {
     if (!currentDeck) return;
-    openPaperSetup(paperSourceFromDeck(currentDeck));
+    openPaperSetup(paperSourceFromDeck(currentDeck), "screen-summary");
   });
 
   $("#paper-setup-back").addEventListener("click", () => {
-    if (paper.exam) openExam(paper.exam);
+    if (paper.from === "screen-papers") { renderPapers(); showScreen("screen-papers"); }
+    else if (paper.exam) openExam(paper.exam);
     else if (currentDeck) openDeckSummary(currentDeck);
     else { renderHome(); showScreen("screen-home"); }
   });
@@ -2141,7 +2288,7 @@
   $("#paper-begin").addEventListener("click", () => {
     const questions = (paper.draft && paper.draft.length)
       ? paper.draft
-      : buildPaper(paper.source, profile.paperSize);
+      : buildPaperForMinutes(paper.source, profile.paperMinutes);
     if (!questions.length) return;
     paper.questions = questions.map((e) => ({ q: e.q, deck: e.deck, answer: "" }));
     paper.index = 0;
@@ -2149,7 +2296,7 @@
     paper.startedAt = Date.now();
     // Taken now, before any marking moves the cards it is built from.
     paper.projectedBefore = paper.source.forecast;
-    paper.endsAt = Date.now() + paperSeconds(questions) * 1000;
+    paper.endsAt = Date.now() + profile.paperMinutes * 60000;
     startPaperClock();
     renderPaperQuestion();
     showScreen("screen-paper");
@@ -2362,9 +2509,10 @@
     showScreen("screen-paper-result");
   }
 
-  $("#paper-again").addEventListener("click", () => openPaperSetup(paper.source));
+  $("#paper-again").addEventListener("click", () => openPaperSetup(paper.source, paper.from));
   $("#paper-done").addEventListener("click", () => {
-    if (paper.exam) openExam(paper.exam);
+    if (paper.from === "screen-papers") { renderPapers(); showScreen("screen-papers"); }
+    else if (paper.exam) openExam(paper.exam);
     else if (currentDeck) openDeckSummary(currentDeck);
     else { renderHome(); showScreen("screen-home"); }
   });
@@ -2749,7 +2897,10 @@
     SOUNDSCAPES.forEach((sc) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "scape-btn" + (sc.id === profile.scape ? " active" : "");
+      const on = sc.id === "silence"
+        ? Ambience.current() === "silence"
+        : sc.id === Ambience.current();
+      btn.className = "scape-btn" + (on ? " active" : "");
       btn.dataset.scape = sc.id;
       btn.innerHTML = `
         <span class="scape-icon">${sc.icon}</span>
@@ -2757,17 +2908,37 @@
         <span class="scape-note">${escapeHtml(sc.note)}</span>
       `;
       btn.addEventListener("click", () => {
-        profile.scape = sc.id;
+        // Tapping what's already playing turns it off, so the grid is both
+        // the picker and the off switch.
+        const stop = sc.id === Ambience.current();
+        profile.scape = stop ? "silence" : sc.id;
         saveProfile(profile);
-        renderScapeGrid();
         // Play it straight away — you can't choose a sound you can't hear.
         Ambience.setMuted(false);
-        Ambience.play(sc.id);
+        Ambience.play(profile.scape);
+        renderScapeGrid();
+        updateSoundDock();
         vibrate(8);
       });
       grid.appendChild(btn);
     });
   }
+
+  $("#sound-dock").addEventListener("click", () => {
+    Ambience.stop();
+    profile.scape = "silence";
+    saveProfile(profile);
+    renderScapeGrid();
+    updateSoundDock();
+    vibrate(8);
+  });
+
+  // A soundscape shouldn't keep playing into a tab you've left, and the
+  // audio clock drifting while hidden makes the loops audibly seam.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) Ambience.suspend();
+    else Ambience.resume();
+  });
 
   function renderSfxToggle() {
     const btn = $("#sfx-toggle");
@@ -2860,27 +3031,10 @@
 
     Ambience.setMuted(false);
     Ambience.play(profile.scape);
-    updateSoundButton();
-    $("#flash-sound-btn").classList.remove("hidden");
+    updateSoundDock();
 
     currentDeck = null;
     beginFlashcardsSession(entries);
-  });
-
-  function updateSoundButton() {
-    const btn = $("#flash-sound-btn");
-    const sc = scapeById(sitting.scape);
-    const off = Ambience.isMuted() || sitting.scape === "silence";
-    btn.textContent = off ? "🔇" : sc.icon;
-    btn.setAttribute("aria-label", off ? "Sound off" : "Mute sound");
-  }
-
-  $("#flash-sound-btn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (sitting.scape === "silence") { toast("This sitting is in silence."); return; }
-    Ambience.setMuted(!Ambience.isMuted());
-    updateSoundButton();
-    vibrate(8);
   });
 
   // Leaving early ends the sitting: the sound shouldn't follow you out.
@@ -2888,9 +3042,8 @@
     if (!sitting.active) return;
     const minutes = Math.max(1, Math.round((Date.now() - sitting.startedAt) / 60000));
     sitting.active = false;
-    $("#flash-sound-btn").classList.add("hidden");
 
-    if (!completed) { Ambience.stop(); return null; }
+    if (!completed) return null;
 
     const st = profile.stats;
     st.sittings = (st.sittings || 0) + 1;
@@ -2900,7 +3053,6 @@
     st.scapeCounts[sitting.scape] = (st.scapeCounts[sitting.scape] || 0) + 1;
     saveProfile(profile);
 
-    Ambience.stop();
     setTimeout(() => Ambience.chime(), 300);
     return { cards: sitting.done, minutes, scape: sitting.scape };
   }
@@ -3120,7 +3272,6 @@
   });
 
   function renderHome() {
-    if (!sitting.active) Ambience.stop();
     renderToday();
     renderProfileHeader();
     renderHeaderChips();
@@ -4082,6 +4233,7 @@
   function openTab(id) {
     if (id === "screen-cupboard") renderCupboard();
     else if (id === "screen-exams") renderExams();
+    else if (id === "screen-papers") renderPapers();
     else if (id === "screen-room") renderRoom();
     else renderHome();
     showScreen(id);

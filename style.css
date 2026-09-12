@@ -800,6 +800,117 @@ input[type="date"] { font-family: inherit; }
 }
 .scape-btn.active .scape-icon { filter: none; opacity: 1; }
 
+/* Papers tab: the source picker and the history under it */
+.paper-source-list { display: flex; flex-direction: column; gap: 8px; }
+.paper-source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 15px;
+  border-radius: 15px;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: var(--taupe);
+  transition: border-color 0.18s ease, transform 0.14s var(--bounce);
+}
+.paper-source:active { transform: scale(0.985); }
+.paper-source-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.paper-source-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paper-source-meta { font-size: 0.66rem; line-height: 1.35; }
+.paper-source-badge {
+  flex: 0 0 auto;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgb(var(--accent-rgb) / 0.14);
+  color: var(--gold-dim);
+}
+.paper-source-go { flex: 0 0 auto; font-size: 0.95rem; opacity: 0.45; }
+
+.paper-history { display: flex; flex-direction: column; gap: 6px; }
+.paper-hist-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 15px;
+  border-radius: 13px;
+  border: 1px solid var(--hair);
+}
+.paper-hist-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.paper-hist-title {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paper-hist-meta { font-size: 0.62rem; color: var(--taupe); }
+.paper-hist-pct {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--gold-dim);
+}
+
+/* The sound dock: shown wherever you are, for as long as a soundscape is
+   playing. Without it the only way to stop the rain would be to walk back
+   to the Room, which is not where you are when you want it to stop. */
+.sound-dock {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px 9px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--veil);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 18px rgb(var(--shadow-rgb) / 0.14);
+  cursor: pointer;
+  color: var(--taupe);
+  transition: transform 0.16s var(--bounce), opacity 0.2s ease;
+}
+.sound-dock:active { transform: scale(0.93); }
+.sound-dock.hidden { display: none; }
+/* Clear of the tab bar on screens that have one. */
+.sound-dock.above-tabs { bottom: 74px; }
+.sound-dock-icon { font-size: 1.05rem; line-height: 1; }
+.sound-dock-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.sound-dock-bars i {
+  width: 2.5px;
+  border-radius: 2px;
+  background: var(--violet);
+  animation: sound-bar 0.9s ease-in-out infinite;
+}
+.sound-dock-bars i:nth-child(1) { height: 6px;  animation-delay: 0s; }
+.sound-dock-bars i:nth-child(2) { height: 13px; animation-delay: 0.18s; }
+.sound-dock-bars i:nth-child(3) { height: 9px;  animation-delay: 0.36s; }
+.sound-dock-bars i:nth-child(4) { height: 12px; animation-delay: 0.54s; }
+@keyframes sound-bar {
+  0%, 100% { transform: scaleY(0.42); }
+  50%      { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-dock-bars i { animation: none; }
+}
+
 /* Celebration chime switch */
 .sfx-row {
   display: flex;
@@ -865,6 +976,16 @@ input[type="date"] { font-family: inherit; }
 .target-cap { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.1em; }
 .target-btn.active { border-color: var(--gold); background: rgb(var(--accent-rgb) / 0.1); color: var(--gold-dim); }
 .target-btn.active .target-num { color: var(--gold-dim); }
+
+/* Five choices on one row rather than four and a stranded fifth. */
+#paper-time-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+#paper-time-row .target-btn { flex: none; padding: 12px 2px 9px; }
+#paper-time-row .target-num { font-size: 1.15rem; }
+#paper-time-row .target-cap { font-size: 0.5rem; letter-spacing: 0.06em; }
 
 /* Arrival. */
 .sitting-done {
@@ -1476,8 +1597,8 @@ input[type="date"] { font-family: inherit; }
   z-index: 20;
   display: flex;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 2px;
+  padding: 8px 8px;
   background: var(--veil);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1486,12 +1607,13 @@ input[type="date"] { font-family: inherit; }
 }
 .tab {
   flex: 1 1 0;
-  max-width: 180px;
+  min-width: 0;
+  max-width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 7px 4px 5px;
+  padding: 7px 2px 5px;
   border: 0;
   border-radius: 12px;
   background: none;
@@ -1501,7 +1623,15 @@ input[type="date"] { font-family: inherit; }
 }
 .tab:active { transform: scale(0.94); }
 .tab-icon { font-size: 1.15rem; line-height: 1; filter: grayscale(1); opacity: 0.5; transition: filter 0.2s ease, opacity 0.2s ease; }
-.tab-label { font-size: 0.62rem; font-weight: 650; letter-spacing: 0.02em; }
+.tab-label {
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .tab.active { background: rgb(var(--accent-rgb) / 0.12); color: var(--gold-dim); }
 .tab.active .tab-icon { filter: none; opacity: 1; }
 
@@ -2220,6 +2350,8 @@ textarea.textarea-tall { min-height: 220px; }
   .topic-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
   .exam-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start; }
   .area-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .paper-source-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; align-items: start; }
+  .paper-history { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
   .next-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
   .theme-grid, .scape-grid { grid-template-columns: repeat(3, 1fr); }
   .theme-auto { grid-column: 1 / -1; }
