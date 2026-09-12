@@ -13,6 +13,16 @@
   src: url('fonts/fraunces-italic.woff2') format('woff2');
 }
 @font-face {
+  /* The same italic file under a second name, declared upright, so a
+     theme can adopt italic letterforms as its display face by swapping
+     one variable instead of restyling forty selectors. */
+  font-family: 'FrauncesSoft';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('fonts/fraunces-italic.woff2') format('woff2');
+}
+@font-face {
   font-family: 'Inter';
   font-style: normal;
   font-weight: 300 800;
@@ -21,29 +31,31 @@
 }
 
 :root {
-  --paper: #faf3e6;
-  --panel: #faf3e6;
-  --panel-2: #f2e5c8;
-  --hair: #e0cb9a;
-  --ink: #241c10;
-  --taupe: #7d7057;
-  --gold: #b8831b;
-  --gold-bright: #e6a83c;
-  --gold-dim: #8f6a26;
+  --paper: #f6efe1;
+  --panel: #fffaf0;
+  --panel-2: #efe2c7;
+  --hair: #e2d1ab;
+  --ink: #2b2016;
+  --taupe: #7b6c54;
+  --gold: #b07f2c;
+  --gold-bright: #e5a848;
+  --gold-dim: #8a6220;
   --sage: #3f8459;
   --sage-bright: #5aab78;
-  --oxblood: #c14a37;
-  --oxblood-bright: #e0654e;
-  --teal: #1f8f92;
-  --teal-bright: #38c2c4;
-  --coral: #e2622f;
-  --coral-bright: #ff8a54;
+  --oxblood: #bd5140;
+  --oxblood-bright: #dc7059;
+  --teal: #23888c;
+  --teal-bright: #3cbabd;
+  --coral: #dd6837;
+  --coral-bright: #f68d5c;
   --violet: #7a5ed6;
   --violet-bright: #9c85ea;
   --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
   --radius: 14px;
+  /* --serif is the display face; each theme chooses its own voice. */
   --serif: 'Fraunces', Georgia, 'Iowan Old Style', serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --track: 0em;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
@@ -65,134 +77,142 @@
 
 /* Blossom — early light. */
 [data-theme="blossom"] {
-  --paper: #fdf1f3;
-  --panel: #fdf1f3;
-  --panel-2: #f8dfe5;
-  --hair: #eec6d0;
-  --ink: #2f1620;
-  --taupe: #8a626e;
-  --gold: #c1526f;
-  --gold-bright: #e87d9c;
-  --gold-dim: #9b3f57;
-  --sage: #4f8a6b;
-  --sage-bright: #6cae8a;
-  --teal: #3f8f9e;
-  --teal-bright: #5cb6c4;
-  --coral: #e0653f;
-  --coral-bright: #f78a63;
-  --violet: #8c5fd0;
-  --violet-bright: #a982e6;
-  --oxblood: #c14a5a;
-  --oxblood-bright: #e06d7c;
-  --shadow-rgb: 60 24 36;
-  --warm-rgb: 150 70 95;
-  --track-rgb: 150 110 124;
-  --accent-rgb: 193 82 111;
-  --on-accent: #33101c;
-  --veil: rgba(253, 241, 243, 0.92);
-  --wash-a: rgba(240, 150, 180, 0.20);
-  --wash-b: rgba(140, 190, 220, 0.10);
-  --wash-c: rgba(250, 190, 140, 0.10);
-  --confetti: #c1526f, #e87d9c, #4f8a6b, #d99a6b;
+  --serif: 'FrauncesSoft', Georgia, serif;
+  --track: 0.004em;
+  --paper: #fbeef0;
+  --panel: #fff8f8;
+  --panel-2: #f7dfe3;
+  --hair: #f0cad1;
+  --ink: #38212a;
+  --taupe: #8b6772;
+  --gold: #c4707d;
+  --gold-bright: #e9949f;
+  --gold-dim: #9e4f5e;
+  --sage: #4f8f74;
+  --sage-bright: #6fb094;
+  --teal: #4795a6;
+  --teal-bright: #6ab8c7;
+  --coral: #e07a55;
+  --coral-bright: #f59d78;
+  --violet: #9270d8;
+  --violet-bright: #ae92e8;
+  --oxblood: #c0616c;
+  --oxblood-bright: #dd8290;
+  --shadow-rgb: 62 30 40;
+  --warm-rgb: 150 80 100;
+  --track-rgb: 150 112 124;
+  --accent-rgb: 196 112 125;
+  --on-accent: #35131c;
+  --veil: rgba(251, 238, 240, 0.92);
+  --wash-a: rgba(240, 165, 185, 0.20);
+  --wash-b: rgba(150, 195, 220, 0.10);
+  --wash-c: rgba(250, 200, 160, 0.12);
+  --confetti: #c4707d, #e9949f, #4f8f74, #e0a878;
 }
 
 /* Forest — late afternoon. */
 [data-theme="forest"] {
-  --paper: #eff4ea;
-  --panel: #eff4ea;
-  --panel-2: #dde8d5;
-  --hair: #c1d4b6;
-  --ink: #15251a;
-  --taupe: #5e7360;
-  --gold: #477c40;
-  --gold-bright: #6da762;
-  --gold-dim: #325a2d;
+  --serif: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --track: -0.006em;
+  --paper: #edf2ea;
+  --panel: #f9fbf6;
+  --panel-2: #dceada;
+  --hair: #c3d7be;
+  --ink: #182a1d;
+  --taupe: #5d7361;
+  --gold: #3d7f56;
+  --gold-bright: #5da777;
+  --gold-dim: #2c6040;
   --sage: #2f6b4a;
-  --sage-bright: #4d9268;
-  --teal: #21807e;
-  --teal-bright: #3aa7a4;
-  --coral: #cf6a35;
-  --coral-bright: #ec8b56;
-  --violet: #6f63c4;
-  --violet-bright: #8f84dd;
-  --oxblood: #b0503a;
-  --oxblood-bright: #d07253;
-  --shadow-rgb: 20 38 24;
-  --warm-rgb: 50 90 45;
-  --track-rgb: 100 125 102;
-  --accent-rgb: 71 124 64;
-  --on-accent: #f2f8ee;
-  --veil: rgba(239, 244, 234, 0.92);
-  --wash-a: rgba(120, 190, 120, 0.18);
-  --wash-b: rgba(90, 180, 175, 0.10);
-  --wash-c: rgba(220, 190, 110, 0.10);
-  --confetti: #477c40, #6da762, #21807e, #cf6a35;
+  --sage-bright: #4f9a6d;
+  --teal: #278a86;
+  --teal-bright: #43ada9;
+  --coral: #cf7040;
+  --coral-bright: #e89264;
+  --violet: #6f6ac6;
+  --violet-bright: #8f8ade;
+  --oxblood: #b0533c;
+  --oxblood-bright: #cd7457;
+  --shadow-rgb: 20 40 26;
+  --warm-rgb: 44 96 64;
+  --track-rgb: 96 124 100;
+  --accent-rgb: 61 127 86;
+  --on-accent: #f3f9f0;
+  --veil: rgba(237, 242, 234, 0.92);
+  --wash-a: rgba(125, 195, 140, 0.18);
+  --wash-b: rgba(95, 180, 175, 0.10);
+  --wash-c: rgba(220, 195, 120, 0.10);
+  --confetti: #3d7f56, #5da777, #278a86, #cf7040;
 }
 
 /* Dark — evening, warm. */
 [data-theme="dark"] {
-  --paper: #191512;
-  --panel: #221d18;
-  --panel-2: #2c251e;
-  --hair: #473c2f;
-  --ink: #f3eadd;
-  --taupe: #a8967f;
-  --gold: #d9a03f;
-  --gold-bright: #f2bd62;
-  --gold-dim: #b8831b;
-  --sage: #58ab77;
-  --sage-bright: #79c996;
-  --teal: #34b8bb;
-  --teal-bright: #58d4d6;
-  --coral: #f0794a;
-  --coral-bright: #ff9a72;
-  --violet: #9b85ea;
-  --violet-bright: #b8a6f5;
-  --oxblood: #d4614b;
-  --oxblood-bright: #ea8168;
+  --serif: 'Fraunces', Georgia, serif;
+  --track: 0.002em;
+  --paper: #17130f;
+  --panel: #221c16;
+  --panel-2: #2c251d;
+  --hair: #453b2e;
+  --ink: #f4ece0;
+  --taupe: #a5967f;
+  --gold: #dfa54a;
+  --gold-bright: #f5c26d;
+  --gold-dim: #c08d2c;
+  --sage: #5fb07e;
+  --sage-bright: #7fcc9b;
+  --teal: #3cc0c2;
+  --teal-bright: #60d8da;
+  --coral: #f2825a;
+  --coral-bright: #ffa27f;
+  --violet: #a48ff0;
+  --violet-bright: #bfaef7;
+  --oxblood: #d96b53;
+  --oxblood-bright: #ee8a72;
   --shadow-rgb: 0 0 0;
   --warm-rgb: 0 0 0;
-  --track-rgb: 190 170 140;
-  --accent-rgb: 217 160 63;
+  --track-rgb: 196 176 146;
+  --accent-rgb: 223 165 74;
   --on-accent: #1d1509;
-  --veil: rgba(25, 21, 18, 0.92);
-  --wash-a: rgba(217, 160, 63, 0.10);
-  --wash-b: rgba(52, 184, 187, 0.07);
-  --wash-c: rgba(240, 121, 74, 0.06);
-  --confetti: #d9a03f, #f2bd62, #58ab77, #f0794a;
+  --veil: rgba(23, 19, 15, 0.93);
+  --wash-a: rgba(223, 165, 74, 0.11);
+  --wash-b: rgba(60, 192, 194, 0.07);
+  --wash-c: rgba(242, 130, 90, 0.07);
+  --confetti: #dfa54a, #f5c26d, #5fb07e, #f2825a;
 }
 
 /* Midnight — the small hours, cool. */
 [data-theme="midnight"] {
-  --paper: #0f121e;
-  --panel: #171b2a;
-  --panel-2: #1f2537;
-  --hair: #343d58;
+  --serif: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --track: 0.012em;
+  --paper: #0c101b;
+  --panel: #151a28;
+  --panel-2: #1d2436;
+  --hair: #333c56;
   --ink: #e9edf9;
-  --taupe: #8f98b6;
-  --gold: #8ea4f2;
-  --gold-bright: #b2c0f9;
-  --gold-dim: #6a7fd6;
-  --sage: #4fb98d;
-  --sage-bright: #69d3a7;
-  --teal: #3fb6cf;
-  --teal-bright: #63d0e5;
-  --coral: #f07490;
-  --coral-bright: #ff96ad;
-  --violet: #a88cf2;
-  --violet-bright: #c2adf8;
-  --oxblood: #e06a7e;
-  --oxblood-bright: #f28a9c;
+  --taupe: #929cba;
+  --gold: #93a8f5;
+  --gold-bright: #b6c3fa;
+  --gold-dim: #6d81d8;
+  --sage: #55c096;
+  --sage-bright: #77d5b0;
+  --teal: #46bcd4;
+  --teal-bright: #6ad3e6;
+  --coral: #f4809a;
+  --coral-bright: #ff9fb4;
+  --violet: #ab92f5;
+  --violet-bright: #c4b1fa;
+  --oxblood: #e2718a;
+  --oxblood-bright: #f492a6;
   --shadow-rgb: 0 0 0;
   --warm-rgb: 0 0 0;
   --track-rgb: 160 175 215;
-  --accent-rgb: 142 164 242;
-  --on-accent: #101428;
-  --veil: rgba(15, 18, 30, 0.92);
-  --wash-a: rgba(142, 164, 242, 0.12);
-  --wash-b: rgba(63, 182, 207, 0.08);
-  --wash-c: rgba(168, 140, 242, 0.08);
-  --confetti: #8ea4f2, #b2c0f9, #4fb98d, #f07490;
+  --accent-rgb: 147 168 245;
+  --on-accent: #0d1223;
+  --veil: rgba(12, 16, 27, 0.93);
+  --wash-a: rgba(147, 168, 245, 0.13);
+  --wash-b: rgba(70, 188, 212, 0.08);
+  --wash-c: rgba(171, 146, 245, 0.09);
+  --confetti: #93a8f5, #b6c3fa, #55c096, #f4809a;
 }
 
 * { box-sizing: border-box; }
@@ -201,6 +221,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  letter-spacing: var(--track);
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -459,6 +480,63 @@ button { font-family: inherit; }
 .area-track { display: block; height: 6px; border-radius: 4px; background: rgb(var(--track-rgb) / 0.15); overflow: hidden; }
 .area-fill { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold-bright), var(--gold)); }
 .area-foot { font-size: 0.64rem; color: var(--taupe); }
+
+/* ---------------- Mock papers ---------------- */
+.paper-cta { margin-bottom: 4px; }
+.paper-plan {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 15px 17px; border-radius: 15px;
+  border: 1px solid var(--hair); background: var(--panel);
+}
+.plan-row { display: flex; justify-content: space-between; gap: 12px; font-size: 0.78rem; color: var(--taupe); }
+.plan-row span:last-child { color: var(--ink); font-weight: 650; text-align: right; }
+
+.paper-topbar { position: sticky; top: 0; z-index: 5; background: var(--veil);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.paper-clock {
+  flex: 1; text-align: center;
+  font-family: var(--serif); font-size: 1.5rem; font-weight: 560;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.paper-clock.urgent { color: var(--coral); }
+.paper-count { font-size: 0.72rem; font-weight: 700; color: var(--taupe); font-variant-numeric: tabular-nums; }
+
+.paper-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.strip-dot {
+  width: 27px; height: 27px; border-radius: 8px;
+  border: 1.5px solid var(--hair); background: var(--panel);
+  font-size: 0.66rem; font-weight: 700; color: var(--taupe); cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.strip-dot.done { border-color: var(--sage); color: var(--sage); }
+.strip-dot.here { border-color: var(--gold); background: rgb(var(--accent-rgb) / 0.14); color: var(--gold-dim); }
+
+.paper-mark { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--taupe); }
+textarea.paper-short { min-height: 110px; }
+.paper-nav { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.paper-nav .btn:disabled { opacity: 0.4; cursor: default; }
+
+.mark-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mark-row .btn { padding: 14px 8px; font-size: 0.82rem; }
+
+/* Forecast against reality — the point of sitting one. */
+.reality-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 6px 0 4px; }
+.reality-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.reality-num { font-family: var(--serif); font-size: 1.9rem; font-weight: 560; color: var(--ink); font-variant-numeric: tabular-nums; }
+.reality-cap { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--taupe); }
+.reality-arrow { font-size: 1.2rem; color: var(--taupe); }
+
+.paper-list { display: flex; flex-direction: column; gap: 8px; }
+.paper-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 11px 15px; border-radius: 13px;
+  border: 1px solid var(--hair); background: var(--panel);
+}
+.paper-row-score { font-family: var(--serif); font-size: 1.1rem; font-weight: 560; color: var(--gold); flex-shrink: 0; }
+.paper-row-meta { flex: 1; min-width: 0; font-size: 0.66rem; color: var(--taupe); }
+.paper-row-drift { font-size: 0.64rem; font-weight: 700; flex-shrink: 0; }
+.paper-row-drift.over { color: var(--sage); }
+.paper-row-drift.under { color: var(--coral); }
 
 /* ---------------- Exams ---------------- */
 .today-exam {

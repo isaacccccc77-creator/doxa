@@ -63,6 +63,12 @@
       desc: "Reach level 5.", value: (c) => c.level },
     { id: "level_10", ladder: "level", icon: "🏆", label: "Level Ten", group: "mastery", target: 10,
       desc: "Reach level 10.", value: (c) => c.level },
+    { id: "paper_1", ladder: "papers", icon: "📄", label: "Sat a Paper", group: "mastery", target: 1,
+      desc: "Sit a mock paper from start to marked finish.", value: (c) => c.stats.papers || 0 },
+    { id: "paper_5", ladder: "papers", icon: "🗞", label: "Five Papers", group: "mastery", target: 5,
+      desc: "Sit five mock papers.", value: (c) => c.stats.papers || 0 },
+    { id: "paper_80", icon: "🎓", label: "Eighty Percent", group: "mastery", target: 80,
+      desc: "Score 80% or more on a mock paper.", value: (c) => c.stats.bestPaper || 0 },
 
     // The Writing Desk
     { id: "essay_1", ladder: "essays", icon: "📝", label: "First Draft", group: "writing", target: 1,
@@ -184,6 +190,7 @@
   window.addEventListener("popstate", () => {
     navGuardActive = false;
     endSitting(false);
+    stopPaperClock();
     const active = $(".screen.active");
     if (active && active.id !== "screen-home") {
       renderHome();
@@ -232,6 +239,8 @@
     st.sittingCards = st.sittingCards || 0;
     st.longestSitting = st.longestSitting || 0;
     st.scapeCounts = st.scapeCounts || {};
+    st.papers = st.papers || 0;
+    st.bestPaper = st.bestPaper || 0;
     // Badges you've earned but not yet seen in the Cupboard. They get the
     // reveal, and put a pip on the tab until you go and look.
     p.badgeSeen = p.badgeSeen || {};
@@ -241,6 +250,7 @@
     p.avatarPhoto = p.avatarPhoto || "";
     p.exams = Array.isArray(p.exams) ? p.exams : [];
     p.theme = p.theme || "parchment";
+    p.paperSize = p.paperSize || 10;
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
     return p;
@@ -1032,16 +1042,16 @@
   // remembering.
   // ---------------------------------------------------------------
   const THEMES = [
-    { id: "parchment", label: "Parchment", note: "Warm paper, the default",
-      swatch: ["#faf3e6", "#e6a83c", "#b8831b"], bar: "#faf3e6" },
-    { id: "blossom", label: "Blossom", note: "Early light, pink",
-      swatch: ["#fdf1f3", "#e87d9c", "#c1526f"], bar: "#fdf1f3" },
-    { id: "forest", label: "Forest", note: "Cool green, easy going",
-      swatch: ["#eff4ea", "#6da762", "#477c40"], bar: "#eff4ea" },
-    { id: "dark", label: "Dark", note: "Warm and low, for evenings",
-      swatch: ["#191512", "#f2bd62", "#d9a03f"], bar: "#191512" },
-    { id: "midnight", label: "Midnight", note: "Cool and dim, for late",
-      swatch: ["#0f121e", "#b2c0f9", "#8ea4f2"], bar: "#0f121e" },
+    { id: "parchment", label: "Parchment", note: "Warm paper and ink",
+      swatch: ["#fffaf0", "#e5a848", "#b07f2c"], bar: "#f6efe1" },
+    { id: "blossom", label: "Blossom", note: "Soft rose, italic",
+      swatch: ["#fff8f8", "#e9949f", "#c4707d"], bar: "#fbeef0" },
+    { id: "forest", label: "Forest", note: "Deep green, clean type",
+      swatch: ["#f9fbf6", "#5da777", "#3d7f56"], bar: "#edf2ea" },
+    { id: "dark", label: "Dark", note: "Amber on espresso",
+      swatch: ["#221c16", "#f5c26d", "#dfa54a"], bar: "#17130f" },
+    { id: "midnight", label: "Midnight", note: "Periwinkle, airy",
+      swatch: ["#151a28", "#b6c3fa", "#93a8f5"], bar: "#0c101b" },
   ];
 
   // What the clock maps to. Dawn is pink, the working day is paper, the
@@ -1800,6 +1810,324 @@
   }
 
     // ---------------------------------------------------------------
+  // MOCK PAPERS
+  //
+  // A flashcard shows you the question with the answer one tap away, on
+  // your terms, as many times as you like. An exam gives you none of that:
+  // cold recall, in a fixed order you didn't choose, against a clock. That
+  // gap is why students who feel fluent on cards still underperform, and
+  // nothing in the flashcard world rehearses it.
+  //
+  // So: a paper built from this exam's own cards, timed, with every answer
+  // hidden until you've finished, then marked by you. And because the app
+  // already predicts your readiness from review history, the score is the
+  // first honest check on that prediction it has ever had.
+  // ---------------------------------------------------------------
+  const PAPER_SIZES = [6, 10, 16];
+  const SECONDS_SHORT = 90;
+  const SECONDS_ESSAY = 360;
+
+  const paper = {
+    exam: null, questions: [], index: 0, endsAt: 0, tick: null,
+    marking: 0, marks: [], startedAt: 0,
+  };
+
+  function paperSeconds(questions) {
+    return questions.reduce((sum, q) =>
+      sum + (inferKind(q.q) === "essay" ? SECONDS_ESSAY : SECONDS_SHORT), 0);
+  }
+
+  function formatClock(seconds) {
+    const s = Math.max(0, Math.round(seconds));
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  // Spread the questions across the areas the exam covers rather than
+  // taking a flat random sample, so one big deck can't swallow the paper.
+  function buildPaper(exam, size) {
+    const areas = examBreakdown(exam).filter((a) => a.total > 0);
+    if (!areas.length) return [];
+    const pools = areas.map((a) => { const c = a.cards.slice(); shuffleArr(c); return c; });
+    const seen = new Set();
+    const out = [];
+    let i = 0;
+    while (out.length < size && pools.some((pool) => pool.length)) {
+      const pool = pools[i % pools.length];
+      i++;
+      const next = pool.shift();
+      if (!next || seen.has(next.q.id)) continue;
+      seen.add(next.q.id);
+      out.push(next);
+    }
+    return out;
+  }
+
+  function renderPaperSetup() {
+    const exam = currentExam;
+    const scope = examScopeEntries(exam).length;
+    const row = $("#paper-size-row");
+    row.innerHTML = "";
+    const sizes = PAPER_SIZES.filter((n) => n <= scope);
+    if (!sizes.length) sizes.push(scope);
+
+    if (!profile.paperSize || sizes.indexOf(profile.paperSize) === -1) {
+      profile.paperSize = sizes[Math.min(1, sizes.length - 1)];
+    }
+
+    sizes.forEach((n) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "target-btn" + (n === profile.paperSize ? " active" : "");
+      btn.dataset.size = n;
+      btn.innerHTML = `<span class="target-num">${n}</span><span class="target-cap">questions</span>`;
+      btn.addEventListener("click", () => {
+        profile.paperSize = n;
+        saveProfile(profile);
+        renderPaperSetup();
+        vibrate(8);
+      });
+      row.appendChild(btn);
+    });
+
+    // Built once and kept, so the paper you are shown the plan for is the
+    // paper you actually sit. Rebuilding on Begin drew a fresh random
+    // sample and the promised time no longer matched the clock.
+    const draft = buildPaper(exam, profile.paperSize);
+    paper.draft = draft;
+    const essays = draft.filter((e) => inferKind(e.q) === "essay").length;
+    const mins = Math.max(1, Math.round(paperSeconds(draft) / 60));
+    $("#paper-plan").innerHTML = `
+      <div class="plan-row"><span>${draft.length} question${draft.length === 1 ? "" : "s"}</span><span>${essays} long, ${draft.length - essays} short</span></div>
+      <div class="plan-row"><span>Time allowed</span><span>${mins} minutes</span></div>
+      <div class="plan-row"><span>Drawn from</span><span>${escapeHtml(exam.title)}</span></div>
+    `;
+    $("#paper-begin-label").textContent = `Begin — ${mins} minutes`;
+  }
+
+  function openPaperSetup() {
+    if (!currentExam) return;
+    if (!examScopeEntries(currentExam).length) { toast("Link some decks to this exam first."); return; }
+    paper.exam = currentExam;
+    renderPaperSetup();
+    showScreen("screen-paper-setup");
+  }
+
+  $("#paper-begin").addEventListener("click", () => {
+    const questions = (paper.draft && paper.draft.length)
+      ? paper.draft
+      : buildPaper(paper.exam, profile.paperSize);
+    if (!questions.length) return;
+    paper.questions = questions.map((e) => ({ q: e.q, deck: e.deck, answer: "" }));
+    paper.index = 0;
+    paper.marks = new Array(questions.length).fill(null);
+    paper.startedAt = Date.now();
+    // Taken now, before any marking moves the cards it is built from.
+    paper.projectedBefore = forecastFor(paper.exam).projPct;
+    paper.endsAt = Date.now() + paperSeconds(questions) * 1000;
+    startPaperClock();
+    renderPaperQuestion();
+    showScreen("screen-paper");
+  });
+
+  function startPaperClock() {
+    stopPaperClock();
+    paper.tick = setInterval(() => {
+      const left = (paper.endsAt - Date.now()) / 1000;
+      $("#paper-clock").textContent = formatClock(left);
+      $("#paper-clock").classList.toggle("urgent", left <= 60);
+      if (left <= 0) {
+        stopPaperClock();
+        toast("Time. Marking now.");
+        beginMarking();
+      }
+    }, 250);
+    $("#paper-clock").textContent = formatClock((paper.endsAt - Date.now()) / 1000);
+  }
+
+  function stopPaperClock() {
+    if (paper.tick) { clearInterval(paper.tick); paper.tick = null; }
+  }
+
+  function storeCurrentAnswer() {
+    const item = paper.questions[paper.index];
+    if (item) item.answer = $("#paper-answer").value;
+  }
+
+  function renderPaperQuestion() {
+    const item = paper.questions[paper.index];
+    if (!item) return;
+    const kind = inferKind(item.q);
+    $("#paper-count").textContent = `${paper.index + 1} / ${paper.questions.length}`;
+    $("#paper-mark").textContent = kind === "essay" ? "Long answer" : "Short answer";
+    $("#paper-question").textContent = item.q.prompt || "(see the picture)";
+    paintCardImage($("#paper-image"), item.q.imgFront);
+    $("#paper-answer").value = item.answer;
+    $("#paper-answer").className = kind === "essay" ? "essay-input" : "essay-input paper-short";
+    $("#paper-prev").disabled = paper.index === 0;
+    $("#paper-next").textContent = paper.index === paper.questions.length - 1 ? "Last one" : "Next";
+
+    const strip = $("#paper-strip");
+    strip.innerHTML = "";
+    paper.questions.forEach((it, i) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "strip-dot" + (i === paper.index ? " here" : "") + (it.answer.trim() ? " done" : "");
+      dot.textContent = i + 1;
+      dot.addEventListener("click", () => { storeCurrentAnswer(); paper.index = i; renderPaperQuestion(); });
+      strip.appendChild(dot);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  $("#paper-answer").addEventListener("input", storeCurrentAnswer);
+
+  $("#paper-prev").addEventListener("click", () => {
+    storeCurrentAnswer();
+    if (paper.index > 0) { paper.index--; renderPaperQuestion(); }
+  });
+
+  $("#paper-next").addEventListener("click", () => {
+    storeCurrentAnswer();
+    if (paper.index < paper.questions.length - 1) { paper.index++; renderPaperQuestion(); }
+    else beginMarking();
+  });
+
+  $("#paper-finish").addEventListener("click", () => {
+    storeCurrentAnswer();
+    const blank = paper.questions.filter((it) => !it.answer.trim()).length;
+    if (blank && !confirm(`${blank} question${blank === 1 ? " is" : "s are"} still blank. Finish anyway?`)) return;
+    beginMarking();
+  });
+
+  $("#paper-quit").addEventListener("click", () => {
+    if (!confirm("Abandon this paper? Nothing will be recorded.")) return;
+    stopPaperClock();
+    if (paper.exam) openExam(paper.exam); else { renderExams(); showScreen("screen-exams"); }
+  });
+
+  // ---- marking ----
+  function beginMarking() {
+    stopPaperClock();
+    storeCurrentAnswer();
+    paper.marking = 0;
+    renderMarking();
+    showScreen("screen-marking");
+  }
+
+  function renderMarking() {
+    if (paper.marking >= paper.questions.length) { finishPaper(); return; }
+    const item = paper.questions[paper.marking];
+    const words = countWords(item.answer);
+    $("#marking-count").textContent = `${paper.marking + 1} / ${paper.questions.length}`;
+    $("#marking-progress").style.width =
+      Math.round((paper.marking / paper.questions.length) * 100) + "%";
+    $("#marking-question").textContent = item.q.prompt || "(see the picture)";
+    $("#marking-yours").textContent = item.answer.trim() || "— left blank —";
+    $("#marking-words").textContent = words ? `(${words} word${words === 1 ? "" : "s"})` : "";
+    $("#marking-model").textContent = item.q.answer;
+    paintCardImage($("#marking-image"), item.q.imgBack);
+    window.scrollTo(0, 0);
+  }
+
+  function markCurrent(value) {
+    const item = paper.questions[paper.marking];
+    paper.marks[paper.marking] = value;
+
+    // Full marks advance the card; a miss sends it back. A half mark
+    // leaves the schedule alone — you knew some of it, and pretending
+    // otherwise in either direction would make the next review wrong.
+    if (value === 1) { gradeQuestion(item.deck, item.q.id, true); upsertDeck(item.deck); }
+    else if (value === 0) { gradeQuestion(item.deck, item.q.id, false); upsertDeck(item.deck); }
+
+    profile.stats.cardsGraded++;
+    noteReviewed();
+    saveProfile(profile);
+    vibrate(value === 1 ? [10] : [10, 30, 10]);
+    paper.marking++;
+    renderMarking();
+  }
+
+  function finishPaper() {
+    const total = paper.questions.length;
+    const earned = paper.marks.reduce((sum, m) => sum + (m || 0), 0);
+    const pct = Math.round((earned / total) * 100);
+    const minutes = Math.max(1, Math.round((Date.now() - paper.startedAt) / 60000));
+
+    // The forecast as it stood before this paper touched anything.
+    const projected = paper.projectedBefore;
+
+    const record = { at: Date.now(), earned, total, pct, minutes, projected };
+    const list = loadExams();
+    const exam = list.find((e) => e.id === paper.exam.id);
+    if (exam) {
+      exam.papers = exam.papers || [];
+      exam.papers.push(record);
+      if (exam.papers.length > 20) exam.papers = exam.papers.slice(-20);
+      saveExams(list);
+      paper.exam = exam;
+    }
+
+    profile.stats.papers = (profile.stats.papers || 0) + 1;
+    profile.stats.bestPaper = Math.max(profile.stats.bestPaper || 0, pct);
+    saveProfile(profile);
+
+    $("#paper-score").textContent = pct + "%";
+    $("#paper-score-sub").textContent =
+      `${earned % 1 ? earned.toFixed(1) : earned} of ${total} · ${minutes} min`;
+
+    $("#reality-forecast").textContent = projected + "%";
+    $("#reality-actual").textContent = pct + "%";
+    const drift = pct - projected;
+    $("#reality-note").textContent =
+      Math.abs(drift) <= 8
+        ? "The forecast had you about right. It's reading your revision correctly."
+        : drift < 0
+          ? `The forecast was ${Math.abs(drift)} points optimistic. Recognising a card is not the same as producing the answer cold — worth more writing and less flipping.`
+          : `You did ${drift} points better than projected. The forecast only counts a card solid after three correct recalls, so it lags when you actually know the material.`;
+
+    // Which areas the marks landed in.
+    const byArea = new Map();
+    examBreakdown(paper.exam).forEach((a) => {
+      const ids = new Set(a.cards.map((c) => c.q.id));
+      let got = 0, count = 0;
+      paper.questions.forEach((item, i) => {
+        if (!ids.has(item.q.id)) return;
+        count++;
+        got += paper.marks[i] || 0;
+      });
+      if (count) byArea.set(a.label, { label: a.label, kind: a.kind, got, count });
+    });
+
+    const list2 = Array.from(byArea.values())
+      .map((a) => Object.assign(a, { pct: Math.round((a.got / a.count) * 100) }))
+      .sort((x, y) => x.pct - y.pct);
+
+    $("#paper-areas").innerHTML = list2.map((a) => `
+      <div class="area-row" role="group">
+        <span class="area-head">
+          <span class="area-label">${a.kind === "tag" ? "#" : ""}${escapeHtml(a.label)}</span>
+          <span class="area-pct">${a.pct}%</span>
+        </span>
+        <span class="area-track"><span class="area-fill" style="width:${a.pct}%"></span></span>
+        <span class="area-foot">${a.got % 1 ? a.got.toFixed(1) : a.got} of ${a.count}</span>
+      </div>
+    `).join("");
+
+    if (pct >= 80) { burstConfetti(50); vibrate([15, 40, 15]); }
+    celebrateBadges(checkBadges(), true);
+    showScreen("screen-paper-result");
+  }
+
+  $("#paper-again").addEventListener("click", openPaperSetup);
+  $("#paper-done").addEventListener("click", () => {
+    if (paper.exam) openExam(paper.exam); else { renderExams(); showScreen("screen-exams"); }
+  });
+
+  $("#mark-none").addEventListener("click", () => markCurrent(0));
+  $("#mark-half").addEventListener("click", () => markCurrent(0.5));
+  $("#mark-full").addEventListener("click", () => markCurrent(1));
+
+    // ---------------------------------------------------------------
   // Exam screens: the list, the editor, and the forecast itself.
   // ---------------------------------------------------------------
   let editingExamId = null;
@@ -2112,6 +2440,20 @@
       areaList.appendChild(row);
     });
 
+    // Papers already sat, newest first.
+    const papers = (exam.papers || []).slice().reverse();
+    const paperWrap = $("#exam-papers-wrap");
+    paperWrap.classList.toggle("hidden", papers.length === 0);
+    $("#exam-papers").innerHTML = papers.map((r) => `
+      <div class="paper-row">
+        <span class="paper-row-score">${r.pct}%</span>
+        <span class="paper-row-meta">${r.earned % 1 ? r.earned.toFixed(1) : r.earned}/${r.total} · ${r.minutes} min · ${timeAgo(r.at)}</span>
+        <span class="paper-row-drift ${r.pct >= r.projected ? "over" : "under"}">${r.pct >= r.projected ? "+" : ""}${r.pct - r.projected} vs forecast</span>
+      </div>
+    `).join("");
+
+    $("#exam-paper-btn").classList.toggle("hidden", !linked);
+
     const due = f.entries.filter(({ q, deck }) => isDue(deck, q.id)).length;
     $("#exam-study-label").textContent = due > 0 ? `Study this exam (${due} due)` : "Study this exam";
     $("#exam-method-note").textContent =
@@ -2123,6 +2465,8 @@
   $("#exam-pick-btn").addEventListener("click", () => {
     if (currentExam) openExamEditor(currentExam);
   });
+
+  $("#exam-paper-btn").addEventListener("click", openPaperSetup);
 
   $("#exam-study-btn").addEventListener("click", () => {
     if (!currentExam) return;
@@ -2642,6 +2986,7 @@
     btn.addEventListener("click", () => {
       const target = btn.dataset.target;
       endSitting(false);
+      stopPaperClock();
       if (target === "screen-home") {
         renderHome();
         showScreen("screen-home");

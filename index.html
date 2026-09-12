@@ -317,10 +317,115 @@
       <div id="exam-areas" class="area-list"></div>
     </div>
 
+    <div id="exam-papers-wrap" class="hidden">
+      <h2 class="section-title">Papers sat</h2>
+      <div id="exam-papers" class="paper-list"></div>
+    </div>
+
+    <button id="exam-paper-btn" class="btn bento-tile bento-tile-oxblood mode-tile mode-tile-wide paper-cta">
+      <span class="mode-tile-icon">📄</span>
+      <span class="mode-tile-label">Sit a paper</span>
+      <span class="btn-arrow">→</span>
+    </button>
+
     <button id="exam-study-btn" class="btn btn-primary btn-full btn-arrow-cta">
       <span id="exam-study-label">Study this exam</span><span class="btn-arrow">→</span>
     </button>
     <p class="hint" id="exam-method-note"></p>
+  </main>
+</section>
+
+<!-- MOCK PAPER: sat cold, under time, marked afterwards -->
+<section id="screen-paper-setup" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-exam" aria-label="Back">←</button>
+    <div class="wordmark">Sit a paper</div>
+  </header>
+  <main class="home-main">
+    <p class="sitting-blurb">Cards show you the question with the answer a tap away. An exam doesn't. This builds a paper from your own cards, runs a clock, and hides every answer until you've finished — then you mark it yourself.</p>
+
+    <h2 class="section-title">How long a paper</h2>
+    <div id="paper-size-row" class="target-row"></div>
+
+    <div class="paper-plan" id="paper-plan"></div>
+
+    <button id="paper-begin" class="btn btn-primary btn-full btn-arrow-cta">
+      <span id="paper-begin-label">Begin the paper</span><span class="btn-arrow">→</span>
+    </button>
+    <p class="hint">Once it starts the clock runs. You can leave, but the paper is void.</p>
+  </main>
+</section>
+
+<section id="screen-paper" class="screen">
+  <header class="topbar paper-topbar">
+    <button id="paper-quit" class="icon-btn" aria-label="Abandon the paper">✕</button>
+    <div class="paper-clock" id="paper-clock">00:00</div>
+    <div class="paper-count" id="paper-count">1 / 10</div>
+  </header>
+  <main class="essay-main">
+    <div id="paper-strip" class="paper-strip"></div>
+    <div class="paper-mark" id="paper-mark"></div>
+    <div class="essay-question" id="paper-question"></div>
+    <img id="paper-image" class="card-img essay-img hidden" alt="Question image" />
+    <textarea id="paper-answer" class="essay-input" placeholder="Your answer"></textarea>
+    <div class="paper-nav">
+      <button id="paper-prev" class="btn btn-secondary">Back</button>
+      <button id="paper-next" class="btn btn-primary">Next</button>
+    </div>
+    <button id="paper-finish" class="btn-text">Finish and mark it</button>
+  </main>
+</section>
+
+<section id="screen-marking" class="screen">
+  <header class="topbar">
+    <div class="wordmark">Marking</div>
+    <div class="paper-count" id="marking-count">1 / 10</div>
+  </header>
+  <main class="essay-main">
+    <div class="progress-track"><div id="marking-progress" class="progress-fill"></div></div>
+    <div class="essay-question" id="marking-question"></div>
+    <div class="essay-block">
+      <div class="essay-block-label">What you wrote <span id="marking-words" class="essay-block-count"></span></div>
+      <div class="essay-block-text" id="marking-yours"></div>
+    </div>
+    <div class="essay-block essay-block-model">
+      <div class="essay-block-label">The answer</div>
+      <img id="marking-image" class="card-img essay-img hidden" alt="Answer image" />
+      <div class="essay-block-text" id="marking-model"></div>
+    </div>
+    <div class="essay-grade-label">Mark it honestly — this is the whole point</div>
+    <div class="mark-row">
+      <button id="mark-none" class="btn btn-secondary">Missed it</button>
+      <button id="mark-half" class="btn btn-secondary">Half there</button>
+      <button id="mark-full" class="btn btn-primary">Got it</button>
+    </div>
+  </main>
+</section>
+
+<section id="screen-paper-result" class="screen">
+  <main class="center-main">
+    <div class="summary-badge" id="paper-score">0%</div>
+    <p class="summary-sub" id="paper-score-sub"></p>
+
+    <div class="forecast" id="paper-reality">
+      <div class="forecast-head">
+        <span class="forecast-label">Forecast against the paper</span>
+      </div>
+      <div class="reality-row">
+        <div class="reality-item"><span class="reality-num" id="reality-forecast">0%</span><span class="reality-cap">projected</span></div>
+        <div class="reality-arrow">→</div>
+        <div class="reality-item"><span class="reality-num" id="reality-actual">0%</span><span class="reality-cap">you scored</span></div>
+      </div>
+      <p class="forecast-note" id="reality-note"></p>
+    </div>
+
+    <h2 class="section-title">By area</h2>
+    <div id="paper-areas" class="area-list"></div>
+
+    <div class="mode-choice">
+      <button id="paper-again" class="btn btn-secondary btn-full">Sit another</button>
+      <button id="paper-done" class="btn btn-primary btn-full">Done</button>
+    </div>
   </main>
 </section>
 
