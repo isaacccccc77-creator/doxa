@@ -18,6 +18,7 @@
     { id: "mastery", label: "Mastery", note: "Cards you genuinely know" },
     { id: "writing", label: "The Writing Desk", note: "Answers in your own words" },
     { id: "curios", label: "Curiosities", note: "Odd hours and happy returns" },
+    { id: "sittings", label: "The Reading Room", note: "Time spent properly sat down" },
   ];
 
   // Every badge is the same shape: a number you're working towards and a
@@ -88,6 +89,20 @@
       desc: "Come back after a break of three days or more.", value: (c) => c.stats.comebacks },
     { id: "collector", icon: "🗂️", label: "Collector", group: "curios", target: 5,
       desc: "Keep five decks on the go at once.", value: (c) => c.deckCount },
+
+    // The Reading Room
+    { id: "sitting_1", ladder: "sittings", icon: "🕯", label: "Sat Down", group: "sittings", target: 1,
+      desc: "Finish your first sitting.", value: (c) => c.stats.sittings },
+    { id: "sitting_10", ladder: "sittings", icon: "🕰", label: "Regular Sitter", group: "sittings", target: 10,
+      desc: "Finish ten sittings.", value: (c) => c.stats.sittings },
+    { id: "sitting_long", icon: "🌙", label: "Long Haul", group: "sittings", target: 50,
+      desc: "Finish a single sitting of 50 cards.", value: (c) => c.stats.longestSitting },
+    { id: "sitting_cards", icon: "📿", label: "Thousand Cards", group: "sittings", target: 1000,
+      desc: "Review 1,000 cards inside sittings.", value: (c) => c.stats.sittingCards },
+    { id: "sampler", icon: "🎧", label: "Sampler", group: "sittings", target: 4,
+      desc: "Finish a sitting in each of the four soundscapes.",
+      value: (c) => SOUNDSCAPES.filter((sc) => sc.id !== "silence" &&
+        (c.stats.scapeCounts || {})[sc.id] > 0).length },
   ];
 
   const AVATAR_OPTIONS = [
@@ -168,6 +183,7 @@
   }
   window.addEventListener("popstate", () => {
     navGuardActive = false;
+    endSitting(false);
     const active = $(".screen.active");
     if (active && active.id !== "screen-home") {
       renderHome();
@@ -212,6 +228,10 @@
     st.comebacks = st.comebacks || 0;
     st.reviewedToday = st.reviewedToday || 0;
     st.reviewedDate = st.reviewedDate || null;
+    st.sittings = st.sittings || 0;
+    st.sittingCards = st.sittingCards || 0;
+    st.longestSitting = st.longestSitting || 0;
+    st.scapeCounts = st.scapeCounts || {};
     // Badges you've earned but not yet seen in the Cupboard. They get the
     // reveal, and put a pip on the tab until you go and look.
     p.badgeSeen = p.badgeSeen || {};
@@ -219,6 +239,8 @@
     p.avatarEmoji = p.avatarEmoji || AVATAR_OPTIONS[0].emoji;
     p.avatarBg = p.avatarBg || AVATAR_OPTIONS[0].bg;
     p.avatarPhoto = p.avatarPhoto || "";
+    p.scape = p.scape || "rain";
+    p.sittingTarget = p.sittingTarget || 25;
     return p;
   }
   function saveProfile(p) {
@@ -995,6 +1017,290 @@
   function dueCount(deck) { return deck.questions.filter((q) => isDue(deck, q.id)).length; }
 
   // ---------------------------------------------------------------
+  // AMBIENCE: soundscapes synthesised on the fly with Web Audio.
+  // Deliberately no audio files — a few minutes of rain as an mp3 is
+  // several megabytes, and this app has to survive as one offline HTML
+  // file. Filtered noise and a handful of scheduled pops get you a long
+  // way, and they never loop audibly because nothing is a loop.
+  // ---------------------------------------------------------------
+  const SOUNDSCAPES = [
+    { id: "silence", label: "Silence", icon: "🔕", note: "Just you and the cards" },
+    { id: "rain", label: "Rain", icon: "🌧", note: "Steady, against the window" },
+    { id: "fire", label: "Fireplace", icon: "🔥", note: "Low crackle, slow burn" },
+    { id: "cafe", label: "Café", icon: "☕", note: "Warm hum, far-off cups" },
+    { id: "train", label: "Night train", icon: "🚂", note: "Rumble and rails" },
+  ];
+
+  const Ambience = (function () {
+    let ctx = null;
+    let master = null;
+    let analyser = null;
+    let voices = [];
+    let timers = [];
+    let scape = "silence";
+    let muted = false;
+    const LEVEL = 0.42;
+
+    function supported() {
+      return typeof window !== "undefined" &&
+        !!(window.AudioContext || window.webkitAudioContext);
+    }
+
+    function ensureCtx() {
+      if (!supported()) return null;
+      if (!ctx) {
+        try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (e) { return null; }
+        master = ctx.createGain();
+        master.gain.value = 0;
+        master.connect(ctx.destination);
+        // Permanently in line, so it always has real audio to report on.
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        master.connect(analyser);
+      }
+      // Browsers start the context suspended until a real gesture; every
+      // entry point here is behind a tap, so this resumes cleanly.
+      if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
+      return ctx;
+    }
+
+    function noiseBuffer(seconds, kind) {
+      const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      if (kind === "brown") {
+        let last = 0;
+        for (let i = 0; i < len; i++) {
+          const w = Math.random() * 2 - 1;
+          last = (last + 0.02 * w) / 1.02;
+          d[i] = last * 3.5;
+        }
+      } else {
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      }
+      return buf;
+    }
+
+    function bed(kind, seconds) {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(seconds || 4, kind);
+      src.loop = true;
+      src.start();
+      voices.push(src);
+      return src;
+    }
+
+    function filter(type, freq, q) {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      if (q) f.Q.value = q;
+      return f;
+    }
+
+    function gain(value) {
+      const g = ctx.createGain();
+      g.gain.value = value;
+      return g;
+    }
+
+    // A slow oscillator riding a gain, so the bed breathes instead of
+    // sitting at one dead level.
+    function breathe(target, rate, depth) {
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = rate;
+      const amt = gain(depth);
+      lfo.connect(amt);
+      amt.connect(target);
+      lfo.start();
+      voices.push(lfo);
+    }
+
+    // One short shaped burst — a crackle, a rail joint, a distant cup.
+    function blip(freq, q, duration, volume, type) {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(Math.max(0.08, duration + 0.05), "white");
+      const band = filter(type || "bandpass", freq, q || 3);
+      const g = ctx.createGain();
+      const now = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), now + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      src.connect(band); band.connect(g); g.connect(master);
+      src.start(now);
+      src.stop(now + duration + 0.06);
+    }
+
+    function every(minMs, maxMs, fn) {
+      const wait = minMs + Math.random() * (maxMs - minMs);
+      const mine = scape;
+      timers.push(setTimeout(function again() {
+        if (scape !== mine) return;
+        fn();
+        const next = minMs + Math.random() * (maxMs - minMs);
+        timers.push(setTimeout(again, next));
+      }, wait));
+    }
+
+    const BUILD = {
+      rain() {
+        const b = bed("white", 4);
+        const g = gain(0.5);
+        b.connect(filter("highpass", 760)).connect(filter("lowpass", 6200)).connect(g);
+        g.connect(master);
+        breathe(g.gain, 0.07, 0.13);
+        // Distant weather under the hiss.
+        const low = bed("brown", 4);
+        const lg = gain(0.32);
+        low.connect(filter("lowpass", 190)).connect(lg);
+        lg.connect(master);
+        breathe(lg.gain, 0.04, 0.1);
+      },
+      fire() {
+        const b = bed("brown", 4);
+        const g = gain(0.85);
+        b.connect(filter("lowpass", 430)).connect(g);
+        g.connect(master);
+        breathe(g.gain, 0.12, 0.16);
+        every(90, 520, () => blip(500 + Math.random() * 2200, 2.5,
+          0.03 + Math.random() * 0.07, 0.05 + Math.random() * 0.1));
+      },
+      cafe() {
+        const b = bed("brown", 4);
+        const g = gain(0.6);
+        b.connect(filter("bandpass", 620, 0.8)).connect(g);
+        g.connect(master);
+        breathe(g.gain, 0.09, 0.14);
+        // The occasional cup finding a saucer, a long way off.
+        every(2600, 9000, () => blip(2200 + Math.random() * 2600, 9,
+          0.09, 0.012 + Math.random() * 0.016));
+      },
+      train() {
+        const b = bed("brown", 4);
+        const g = gain(0.95);
+        b.connect(filter("lowpass", 165)).connect(g);
+        g.connect(master);
+        breathe(g.gain, 0.05, 0.1);
+        const hiss = bed("white", 4);
+        const hg = gain(0.06);
+        hiss.connect(filter("bandpass", 1400, 0.7)).connect(hg);
+        hg.connect(master);
+        // Rail joints, in pairs, at roughly line speed.
+        every(1500, 2100, () => {
+          blip(120, 1.4, 0.08, 0.16, "lowpass");
+          timers.push(setTimeout(() => {
+            if (scape === "train") blip(120, 1.4, 0.08, 0.13, "lowpass");
+          }, 170));
+        });
+      },
+    };
+
+    function teardown() {
+      timers.forEach(clearTimeout);
+      timers = [];
+      voices.forEach((v) => { try { v.stop(); } catch (e) {} try { v.disconnect(); } catch (e) {} });
+      voices = [];
+    }
+
+    function fadeTo(value, seconds) {
+      if (!master) return;
+      const now = ctx.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(value, now + seconds);
+    }
+
+    return {
+      supported,
+      current() { return scape; },
+      isMuted() { return muted; },
+
+      play(id) {
+        const known = SOUNDSCAPES.some((s) => s.id === id);
+        const next = known ? id : "silence";
+        if (next === scape && next !== "silence") return;
+        if (!ensureCtx()) { scape = next; return; }
+        teardown();
+        scape = next;
+        if (next === "silence") { fadeTo(0, 0.3); return; }
+        BUILD[next]();
+        fadeTo(muted ? 0 : LEVEL, 1.4);
+      },
+
+      stop() {
+        if (!ctx) { scape = "silence"; return; }
+        fadeTo(0, 0.5);
+        const dying = voices.slice();
+        const dyingTimers = timers.slice();
+        scape = "silence";
+        voices = [];
+        timers = [];
+        dyingTimers.forEach(clearTimeout);
+        setTimeout(() => {
+          dying.forEach((v) => { try { v.stop(); } catch (e) {} try { v.disconnect(); } catch (e) {} });
+        }, 600);
+      },
+
+      setMuted(value) {
+        muted = !!value;
+        if (!ctx) return;
+        fadeTo(muted || scape === "silence" ? 0 : LEVEL, 0.25);
+      },
+
+      // A small two-note arrival, so finishing sounds like finishing.
+      chime() {
+        if (!ensureCtx() || muted) return;
+        [660, 990].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          const at = ctx.currentTime + i * 0.16;
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          g.gain.setValueAtTime(0.0001, at);
+          g.gain.exponentialRampToValueAtTime(0.14, at + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
+          osc.connect(g); g.connect(ctx.destination);
+          osc.start(at);
+          osc.stop(at + 1.2);
+        });
+      },
+
+      // Band energies off the master bus. Sound is the one thing in this
+      // app with no visible output, so this is how it gets verified.
+      spectrum() {
+        if (!ctx || !analyser) return null;
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        const nyquist = ctx.sampleRate / 2;
+        const bin = (hz) => Math.round((hz / nyquist) * data.length);
+        const band = (lo, hi) => {
+          let sum = 0, n = 0;
+          for (let i = bin(lo); i < Math.min(bin(hi), data.length); i++) { sum += data[i]; n++; }
+          return n ? Math.round(sum / n) : 0;
+        };
+        return { low: band(20, 250), mid: band(250, 2000), high: band(2000, 9000) };
+      },
+
+      // Readable state, so the behaviour can actually be tested.
+      state() {
+        return {
+          supported: supported(),
+          ctxState: ctx ? ctx.state : "none",
+          scape,
+          muted,
+          gain: master ? Math.round(master.gain.value * 100) / 100 : 0,
+          voices: voices.length,
+        };
+      },
+    };
+  })();
+
+  // The soundscapes are the one part of the app with no visible output to
+  // assert on, so the engine is reachable for tests.
+  window.__doxaAmbience = Ambience;
+
+  // ---------------------------------------------------------------
   // TODAY: everything due across every deck, in one place. Smart Review is
   // per-deck, so with five decks a day's revision meant opening five
   // screens — enough friction to end a daily habit. This answers the
@@ -1056,6 +1362,169 @@
     const today = todayStr();
     if (st.reviewedDate !== today) { st.reviewedDate = today; st.reviewedToday = 0; }
     st.reviewedToday++;
+  }
+
+  // ---------------------------------------------------------------
+  // SITTINGS: a bounded stretch of work with a sound to sit inside and a
+  // finish line you can see. Every focus app measures minutes, but
+  // minutes are the wrong unit for revision — twenty-five minutes of
+  // staring is not progress, forty cards is. So a sitting is counted in
+  // cards, which also means it lines up with what's actually due.
+  // ---------------------------------------------------------------
+  const SITTING_TARGETS = [10, 25, 50];
+  const sitting = {
+    active: false, target: 0, done: 0, scape: "silence", startedAt: 0,
+  };
+
+  function scapeById(id) {
+    return SOUNDSCAPES.find((sc) => sc.id === id) || SOUNDSCAPES[0];
+  }
+
+  function renderScapeGrid() {
+    const grid = $("#scape-grid");
+    grid.innerHTML = "";
+    SOUNDSCAPES.forEach((sc) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "scape-btn" + (sc.id === profile.scape ? " active" : "");
+      btn.dataset.scape = sc.id;
+      btn.innerHTML = `
+        <span class="scape-icon">${sc.icon}</span>
+        <span class="scape-label">${escapeHtml(sc.label)}</span>
+        <span class="scape-note">${escapeHtml(sc.note)}</span>
+      `;
+      btn.addEventListener("click", () => {
+        profile.scape = sc.id;
+        saveProfile(profile);
+        renderScapeGrid();
+        // Play it straight away — you can't choose a sound you can't hear.
+        Ambience.setMuted(false);
+        Ambience.play(sc.id);
+        vibrate(8);
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  function renderTargetRow() {
+    const row = $("#target-row");
+    row.innerHTML = "";
+    const due = allDueEntries().length;
+    const options = SITTING_TARGETS.slice();
+    if (due > 0 && options.indexOf(due) === -1) options.push(due);
+
+    options.forEach((n) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const isDueOption = n === due && SITTING_TARGETS.indexOf(n) === -1;
+      btn.className = "target-btn" + (n === profile.sittingTarget ? " active" : "");
+      btn.dataset.target = n;
+      btn.innerHTML = `<span class="target-num">${n}</span><span class="target-cap">${isDueOption ? "all due" : "cards"}</span>`;
+      btn.addEventListener("click", () => {
+        profile.sittingTarget = n;
+        saveProfile(profile);
+        renderTargetRow();
+        updateSittingHint();
+        vibrate(8);
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  function updateSittingHint() {
+    const due = allDueEntries().length;
+    const total = allEntries().length;
+    const target = Math.min(profile.sittingTarget, Math.max(1, total));
+    const topUp = Math.max(0, target - due);
+    $("#sitting-begin-label").textContent = `Begin — ${target} card${target === 1 ? "" : "s"}`;
+    $("#sitting-hint").textContent = total === 0
+      ? "Write some cards first."
+      : topUp > 0 && due > 0
+        ? `${due} due, plus ${topUp} you're not due to see yet.`
+        : due === 0
+          ? "Nothing is due, so this will be working ahead."
+          : "All of these are due.";
+  }
+
+  function openSitting() {
+    renderScapeGrid();
+    renderTargetRow();
+    updateSittingHint();
+    showScreen("screen-sitting");
+  }
+
+  $("#open-sitting").addEventListener("click", openSitting);
+
+  // Due first, then cards you're not due to see — a sitting you asked for
+  // shouldn't end early just because your queue is short.
+  function buildSittingEntries(target) {
+    const due = allDueEntries();
+    shuffleArr(due);
+    if (due.length >= target) return due.slice(0, target);
+    const dueIds = new Set(due.map((e) => e.q.id));
+    const rest = allEntries().filter((e) => !dueIds.has(e.q.id));
+    shuffleArr(rest);
+    return due.concat(rest.slice(0, target - due.length));
+  }
+
+  $("#sitting-begin").addEventListener("click", () => {
+    const total = allEntries().length;
+    if (total === 0) { toast("Write some cards first."); return; }
+    const target = Math.min(profile.sittingTarget, total);
+    const entries = buildSittingEntries(target);
+    if (!entries.length) return;
+
+    sitting.active = true;
+    sitting.target = entries.length;
+    sitting.done = 0;
+    sitting.scape = profile.scape;
+    sitting.startedAt = Date.now();
+
+    Ambience.setMuted(false);
+    Ambience.play(profile.scape);
+    updateSoundButton();
+    $("#flash-sound-btn").classList.remove("hidden");
+
+    currentDeck = null;
+    beginFlashcardsSession(entries);
+  });
+
+  function updateSoundButton() {
+    const btn = $("#flash-sound-btn");
+    const sc = scapeById(sitting.scape);
+    const off = Ambience.isMuted() || sitting.scape === "silence";
+    btn.textContent = off ? "🔇" : sc.icon;
+    btn.setAttribute("aria-label", off ? "Sound off" : "Mute sound");
+  }
+
+  $("#flash-sound-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (sitting.scape === "silence") { toast("This sitting is in silence."); return; }
+    Ambience.setMuted(!Ambience.isMuted());
+    updateSoundButton();
+    vibrate(8);
+  });
+
+  // Leaving early ends the sitting: the sound shouldn't follow you out.
+  function endSitting(completed) {
+    if (!sitting.active) return;
+    const minutes = Math.max(1, Math.round((Date.now() - sitting.startedAt) / 60000));
+    sitting.active = false;
+    $("#flash-sound-btn").classList.add("hidden");
+
+    if (!completed) { Ambience.stop(); return null; }
+
+    const st = profile.stats;
+    st.sittings = (st.sittings || 0) + 1;
+    st.sittingCards = (st.sittingCards || 0) + sitting.done;
+    st.longestSitting = Math.max(st.longestSitting || 0, sitting.done);
+    st.scapeCounts = st.scapeCounts || {};
+    st.scapeCounts[sitting.scape] = (st.scapeCounts[sitting.scape] || 0) + 1;
+    saveProfile(profile);
+
+    Ambience.stop();
+    setTimeout(() => Ambience.chime(), 300);
+    return { cards: sitting.done, minutes, scape: sitting.scape };
   }
 
   // ---------------------------------------------------------------
@@ -1255,6 +1724,7 @@
   });
 
   function renderHome() {
+    if (!sitting.active) Ambience.stop();
     renderToday();
     renderProfileHeader();
     renderHeaderChips();
@@ -1355,6 +1825,7 @@
   $all(".back-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = btn.dataset.target;
+      endSitting(false);
       if (target === "screen-home") {
         renderHome();
         showScreen("screen-home");
@@ -1818,6 +2289,7 @@
     const deck = poolDeckFor(q.id);
     profile.stats.cardsGraded++;
     noteReviewed();
+    if (sitting.active) sitting.done++;
     gradeQuestion(deck, q.id, known);
     upsertDeck(deck);
     if (known) flash.known++; else flash.learning++;
@@ -1885,6 +2357,7 @@
 
   function finishFlashcards() {
     const total = flash.known + flash.learning;
+    const sat = endSitting(true);
     recordSession(total > 0 && flash.learning === 0);
     const bonus = addXp(XP_SESSION_BONUS);
     flash.sessionXp += XP_SESSION_BONUS;
@@ -1894,6 +2367,20 @@
     $("#results-score").textContent = `${flash.known}/${total}`;
     $("#results-sub").textContent = `Marked known: ${flash.known} · still learning: ${flash.learning}`;
     $("#results-extras").innerHTML = buildExtrasHtml(flash.sessionXp, flash.leveledUp, flash.newLevel, newlyBadges);
+
+    const doneBanner = $("#sitting-done");
+    if (sat) {
+      const sc = scapeById(sat.scape);
+      $("#sitting-done-icon").textContent = sc.icon;
+      $("#sitting-done-sub").textContent =
+        `${sat.cards} card${sat.cards === 1 ? "" : "s"} · ${sat.minutes} min` +
+        (sat.scape === "silence" ? "" : ` · ${sc.label.toLowerCase()}`);
+      doneBanner.classList.remove("hidden");
+      burstConfetti(40);
+    } else {
+      doneBanner.classList.add("hidden");
+    }
+
     $("#missed-wrap").classList.add("hidden");
     $("#results-retry-missed").classList.add("hidden");
 
@@ -2021,6 +2508,7 @@
     const q = currentEssayQuestion();
     profile.stats.cardsGraded++;
     noteReviewed();
+    if (sitting.active) sitting.done++;
     gradeQuestion(currentDeck, q.id, strong);
     upsertDeck(currentDeck);
     if (strong) essay.strong++; else essay.weak.push(q);
@@ -2045,6 +2533,7 @@
   $("#essay-again").addEventListener("click", () => gradeEssay(false));
 
   function finishEssays() {
+    $("#sitting-done").classList.add("hidden");
     const total = essay.order.length;
     recordSession(total > 0 && essay.weak.length === 0);
     const bonus = addXp(XP_SESSION_BONUS);

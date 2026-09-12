@@ -4,6 +4,7 @@ Write your own flashcards, then study them as quick-recall cards or as full writ
 
 ## Features
 
+- **Sittings** — a bounded stretch of work with a soundscape to sit inside and a finish line you can see. Rain, a fireplace, a café or a night train, all synthesised with Web Audio rather than shipped as audio files, so they cost nothing to download and work offline in the single-file build. A sitting is counted in **cards, not minutes** — twenty-five minutes of staring is not progress, forty cards is — and it draws from what's actually due. Finishing one earns badges on a new Reading Room shelf.
 - **Today** — everything due across every deck in one place, with one button. When you're done it tells you when the next lot is due, which is the bit that brings you back. Big backlogs are dealt 40 at a time rather than dumped on you.
 - **Three kinds of card** — Quick (term → short answer), Essay (question → model answer) and Picture (an image to identify). Choosing the kind reconfigures the editor: its labels, its examples, how much room the answer gets, and whether the picture comes first. Essay mode practises your essay cards when a deck has any.
 - **Images on either side of a card** — anatomy diagrams, histology, radiographs. Pictures are downscaled on import and stored in IndexedDB rather than localStorage (which a few photos would fill on their own), so they stay on your device, work offline, and survive in the single-file build too. Either side can be an image with no text, and any card image can be opened full-screen.

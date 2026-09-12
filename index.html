@@ -89,6 +89,15 @@
       </div>
     </section>
 
+    <button id="open-sitting" class="sitting-entry">
+      <span class="sitting-entry-icon" id="sitting-entry-icon">🕯</span>
+      <span class="sitting-entry-text">
+        <span class="sitting-entry-title">Begin a sitting</span>
+        <span class="sitting-entry-sub">Pick a sound and a number of cards, then settle in.</span>
+      </span>
+      <span class="btn-arrow">→</span>
+    </button>
+
     <div class="ledger bento-grid">
       <div class="ledger-item bento-tile bento-tile-gold">
         <div class="ledger-label">Streak</div>
@@ -188,6 +197,28 @@
       <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
     </button>
   </nav>
+</section>
+
+<!-- SITTING SETUP -->
+<section id="screen-sitting" class="screen">
+  <header class="topbar">
+    <button class="icon-btn back-btn" data-target="screen-home" aria-label="Back">←</button>
+    <div class="wordmark">A sitting</div>
+  </header>
+  <main class="home-main">
+    <p class="sitting-blurb">A fixed number of cards, a sound to sit inside, and a finish line you can see. Nothing leaves this device.</p>
+
+    <h2 class="section-title">Sound</h2>
+    <div id="scape-grid" class="scape-grid"></div>
+
+    <h2 class="section-title">How many cards</h2>
+    <div id="target-row" class="target-row"></div>
+
+    <button id="sitting-begin" class="btn btn-primary btn-full btn-arrow-cta">
+      <span id="sitting-begin-label">Begin</span><span class="btn-arrow">→</span>
+    </button>
+    <p class="hint" id="sitting-hint"></p>
+  </main>
 </section>
 
 <!-- DECK SUMMARY -->
@@ -298,6 +329,7 @@
   <header class="topbar">
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Exit">←</button>
     <div class="progress-track"><div id="flash-progress" class="progress-fill"></div></div>
+    <button id="flash-sound-btn" class="icon-btn hidden" aria-label="Mute sound">🔊</button>
     <button id="flash-shuffle" class="icon-btn" aria-label="Shuffle">↻</button>
   </header>
   <main class="flash-main">
@@ -373,6 +405,11 @@
 <!-- RESULTS -->
 <section id="screen-results" class="screen">
   <main class="center-main">
+    <div id="sitting-done" class="sitting-done hidden">
+      <div class="sitting-done-icon" id="sitting-done-icon">🕯</div>
+      <div class="sitting-done-title">Sitting complete</div>
+      <div class="sitting-done-sub" id="sitting-done-sub"></div>
+    </div>
     <div class="summary-badge" id="results-score">0/0</div>
     <p class="summary-sub" id="results-sub">Nice work!</p>
     <div id="results-extras" class="results-extras"></div>
