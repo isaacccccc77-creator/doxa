@@ -338,7 +338,7 @@
 <!-- MOCK PAPER: sat cold, under time, marked afterwards -->
 <section id="screen-paper-setup" class="screen">
   <header class="topbar">
-    <button class="icon-btn back-btn" data-target="screen-exam" aria-label="Back">←</button>
+    <button id="paper-setup-back" class="icon-btn" aria-label="Back">←</button>
     <div class="wordmark">Sit a paper</div>
   </header>
   <main class="home-main">
@@ -490,7 +490,11 @@
         <span class="mode-tile-icon">📝</span>
         <span class="mode-tile-label" id="essay-tile-label">Essay</span>
       </button>
-      <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile">
+      <button id="start-paper" class="btn bento-tile bento-tile-oxblood mode-tile">
+        <span class="mode-tile-icon">📄</span>
+        <span class="mode-tile-label">Sit a paper</span>
+      </button>
+      <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile mode-tile-wide">
         <span class="mode-tile-icon">✏️</span>
         <span class="mode-tile-label" id="manage-cards-label">Manage cards</span>
       </button>
@@ -590,7 +594,7 @@
           <div class="flash-tag" id="flash-tag">CLOZE</div>
           <img id="flash-front-img" class="card-img hidden" alt="Card image" />
           <div class="flash-text" id="flash-front-text"></div>
-          <div class="flash-hint">Tap to reveal</div>
+          <div class="flash-hint">Answer it first</div>
         </div>
         <div class="flash-face flash-back">
           <img id="flash-back-img" class="card-img hidden" alt="Answer image" />
@@ -600,14 +604,21 @@
       </div>
     </div>
     <button id="flash-zoom-btn" class="btn-text flash-zoom-btn hidden">⤢ Enlarge image</button>
-    <div class="swipe-hints">
-      <span>Still learning</span>
-      <span>Got it</span>
+    <div id="flash-commit">
+      <p class="commit-ask">Answer it in your head, then say how it went — before you see it.</p>
+      <div class="commit-row">
+        <button id="commit-none" class="btn commit-btn commit-none">No idea</button>
+        <button id="commit-shaky" class="btn commit-btn commit-shaky">Shaky</button>
+        <button id="commit-known" class="btn commit-btn commit-known">I know it</button>
+      </div>
     </div>
-    <p id="honesty-note" class="honesty-note hidden">Tick it only if you really recalled it — the schedule is built from your answers.</p>
-    <div class="flash-controls">
-      <button id="flash-no" class="btn btn-round btn-no" aria-label="Still learning">✕</button>
-      <button id="flash-yes" class="btn btn-round btn-yes" aria-label="Got it">✓</button>
+
+    <div id="flash-after" class="after-row hidden">
+      <div class="said-line" id="flash-said"></div>
+      <div class="after-actions">
+        <button id="flash-correct" class="btn btn-secondary">I was off</button>
+        <button id="flash-next" class="btn btn-primary">Next card</button>
+      </div>
     </div>
   </main>
 </section>

@@ -1844,8 +1844,27 @@
 
   // Spread the questions across the areas the exam covers rather than
   // taking a flat random sample, so one big deck can't swallow the paper.
-  function buildPaper(exam, size) {
-    const areas = examBreakdown(exam).filter((a) => a.total > 0);
+  // A paper can be drawn from an exam (across everything it covers) or
+  // from a single deck. Requiring an exam first buried the whole feature.
+  function paperSourceFromExam(exam) {
+    return {
+      kind: "exam", id: exam.id, title: exam.title, exam,
+      areas: examBreakdown(exam).filter((a) => a.total > 0),
+      forecast: forecastFor(exam).projPct,
+    };
+  }
+
+  function paperSourceFromDeck(deck) {
+    return {
+      kind: "deck", id: deck.id, title: deck.title, exam: null,
+      areas: [{ label: deck.title, kind: "deck", key: deck.id,
+                cards: deck.questions.map((q) => ({ q, deck })) }],
+      forecast: null,
+    };
+  }
+
+  function buildPaper(source, size) {
+    const areas = (source.areas || []).filter((a) => a.cards.length > 0);
     if (!areas.length) return [];
     const pools = areas.map((a) => { const c = a.cards.slice(); shuffleArr(c); return c; });
     const seen = new Set();
@@ -1863,8 +1882,8 @@
   }
 
   function renderPaperSetup() {
-    const exam = currentExam;
-    const scope = examScopeEntries(exam).length;
+    const source = paper.source;
+    const scope = source.areas.reduce((n, a) => n + a.cards.length, 0);
     const row = $("#paper-size-row");
     row.innerHTML = "";
     const sizes = PAPER_SIZES.filter((n) => n <= scope);
@@ -1892,37 +1911,50 @@
     // Built once and kept, so the paper you are shown the plan for is the
     // paper you actually sit. Rebuilding on Begin drew a fresh random
     // sample and the promised time no longer matched the clock.
-    const draft = buildPaper(exam, profile.paperSize);
+    const draft = buildPaper(source, profile.paperSize);
     paper.draft = draft;
     const essays = draft.filter((e) => inferKind(e.q) === "essay").length;
     const mins = Math.max(1, Math.round(paperSeconds(draft) / 60));
     $("#paper-plan").innerHTML = `
       <div class="plan-row"><span>${draft.length} question${draft.length === 1 ? "" : "s"}</span><span>${essays} long, ${draft.length - essays} short</span></div>
       <div class="plan-row"><span>Time allowed</span><span>${mins} minutes</span></div>
-      <div class="plan-row"><span>Drawn from</span><span>${escapeHtml(exam.title)}</span></div>
+      <div class="plan-row"><span>Drawn from</span><span>${escapeHtml(source.title)}</span></div>
     `;
     $("#paper-begin-label").textContent = `Begin — ${mins} minutes`;
   }
 
-  function openPaperSetup() {
-    if (!currentExam) return;
-    if (!examScopeEntries(currentExam).length) { toast("Link some decks to this exam first."); return; }
-    paper.exam = currentExam;
+  function openPaperSetup(source) {
+    if (!source) return;
+    const scope = source.areas.reduce((n, a) => n + a.cards.length, 0);
+    if (!scope) { toast("Nothing to draw a paper from yet."); return; }
+    paper.source = source;
+    paper.exam = source.exam;
     renderPaperSetup();
     showScreen("screen-paper-setup");
   }
 
+  $("#start-paper").addEventListener("click", () => {
+    if (!currentDeck) return;
+    openPaperSetup(paperSourceFromDeck(currentDeck));
+  });
+
+  $("#paper-setup-back").addEventListener("click", () => {
+    if (paper.exam) openExam(paper.exam);
+    else if (currentDeck) openDeckSummary(currentDeck);
+    else { renderHome(); showScreen("screen-home"); }
+  });
+
   $("#paper-begin").addEventListener("click", () => {
     const questions = (paper.draft && paper.draft.length)
       ? paper.draft
-      : buildPaper(paper.exam, profile.paperSize);
+      : buildPaper(paper.source, profile.paperSize);
     if (!questions.length) return;
     paper.questions = questions.map((e) => ({ q: e.q, deck: e.deck, answer: "" }));
     paper.index = 0;
     paper.marks = new Array(questions.length).fill(null);
     paper.startedAt = Date.now();
     // Taken now, before any marking moves the cards it is built from.
-    paper.projectedBefore = forecastFor(paper.exam).projPct;
+    paper.projectedBefore = paper.source.forecast;
     paper.endsAt = Date.now() + paperSeconds(questions) * 1000;
     startPaperClock();
     renderPaperQuestion();
@@ -2002,7 +2034,9 @@
   $("#paper-quit").addEventListener("click", () => {
     if (!confirm("Abandon this paper? Nothing will be recorded.")) return;
     stopPaperClock();
-    if (paper.exam) openExam(paper.exam); else { renderExams(); showScreen("screen-exams"); }
+    if (paper.exam) openExam(paper.exam);
+    else if (currentDeck) openDeckSummary(currentDeck);
+    else { renderHome(); showScreen("screen-home"); }
   });
 
   // ---- marking ----
@@ -2033,11 +2067,10 @@
     const item = paper.questions[paper.marking];
     paper.marks[paper.marking] = value;
 
-    // Full marks advance the card; a miss sends it back. A half mark
-    // leaves the schedule alone — you knew some of it, and pretending
-    // otherwise in either direction would make the next review wrong.
-    if (value === 1) { gradeQuestion(item.deck, item.q.id, true); upsertDeck(item.deck); }
-    else if (value === 0) { gradeQuestion(item.deck, item.q.id, false); upsertDeck(item.deck); }
+    // Same three levels the cards use: full marks advance it, a half mark
+    // advances it but brings it back sooner, a miss sends it back.
+    gradeQuestion(item.deck, item.q.id, value === 1 ? 2 : value === 0.5 ? 1 : 0);
+    upsertDeck(item.deck);
 
     profile.stats.cardsGraded++;
     noteReviewed();
@@ -2056,9 +2089,9 @@
     // The forecast as it stood before this paper touched anything.
     const projected = paper.projectedBefore;
 
-    const record = { at: Date.now(), earned, total, pct, minutes, projected };
+    const record = { at: Date.now(), earned, total, pct, minutes, projected: projected || 0 };
     const list = loadExams();
-    const exam = list.find((e) => e.id === paper.exam.id);
+    const exam = paper.exam ? list.find((e) => e.id === paper.exam.id) : null;
     if (exam) {
       exam.papers = exam.papers || [];
       exam.papers.push(record);
@@ -2075,9 +2108,11 @@
     $("#paper-score-sub").textContent =
       `${earned % 1 ? earned.toFixed(1) : earned} of ${total} · ${minutes} min`;
 
-    $("#reality-forecast").textContent = projected + "%";
+    const hasForecast = typeof projected === "number";
+    $("#paper-reality").classList.toggle("hidden", !hasForecast);
+    $("#reality-forecast").textContent = (projected || 0) + "%";
     $("#reality-actual").textContent = pct + "%";
-    const drift = pct - projected;
+    const drift = pct - (projected || 0);
     $("#reality-note").textContent =
       Math.abs(drift) <= 8
         ? "The forecast had you about right. It's reading your revision correctly."
@@ -2118,9 +2153,11 @@
     showScreen("screen-paper-result");
   }
 
-  $("#paper-again").addEventListener("click", openPaperSetup);
+  $("#paper-again").addEventListener("click", () => openPaperSetup(paper.source));
   $("#paper-done").addEventListener("click", () => {
-    if (paper.exam) openExam(paper.exam); else { renderExams(); showScreen("screen-exams"); }
+    if (paper.exam) openExam(paper.exam);
+    else if (currentDeck) openDeckSummary(currentDeck);
+    else { renderHome(); showScreen("screen-home"); }
   });
 
   $("#mark-none").addEventListener("click", () => markCurrent(0));
@@ -2466,7 +2503,9 @@
     if (currentExam) openExamEditor(currentExam);
   });
 
-  $("#exam-paper-btn").addEventListener("click", openPaperSetup);
+  $("#exam-paper-btn").addEventListener("click", () => {
+    if (currentExam) openPaperSetup(paperSourceFromExam(currentExam));
+  });
 
   $("#exam-study-btn").addEventListener("click", () => {
     if (!currentExam) return;
@@ -2718,12 +2757,15 @@
     const prev = getMastery(deck, qid) || { state: "new", reps: 0, interval: 0, dueAt: 0 };
     let rec;
     const lapses = prev.lapses || 0;
-    if (correct) {
+    // 2 = knew it, 1 = shaky, 0 = missed. Booleans still work.
+    const quality = correct === true ? 2 : correct === false ? 0 : correct;
+    if (quality >= 1) {
       const reps = prev.reps + 1;
-      let interval;
-      if (reps === 1) interval = 1;
-      else if (reps === 2) interval = 3;
-      else interval = Math.max(1, Math.round((prev.interval || 3) * 2.2));
+      let full;
+      if (reps === 1) full = 1;
+      else if (reps === 2) full = 3;
+      else full = Math.max(1, Math.round((prev.interval || 3) * 2.2));
+      const interval = quality === 2 ? full : Math.max(1, Math.round(full * 0.55));
       rec = { state: "known", reps, interval, lapses, dueAt: Date.now() + interval * 86400000 };
     } else {
       // Every miss is counted for good. A card you keep failing is worth
@@ -2902,7 +2944,7 @@
     $("#summary-title").textContent = deck.title;
     $("#summary-count").textContent = deck.questions.length;
 
-    const studyButtons = [$("#start-review"), $("#start-essay")];
+    const studyButtons = [$("#start-review"), $("#start-essay"), $("#start-paper")];
     const covering = examsCoveringDeck(deck);
     const upcoming = loadExams().filter((e) => daysUntil(e.date) >= 0);
     const linkBtn = $("#summary-link-btn");
@@ -2938,15 +2980,13 @@
       stickingBtn.classList.add("hidden");
       $("#start-review-all").classList.add("hidden");
       $("#manage-cards-label").textContent = "Add your first card";
-      // It's the only tile on an empty deck, so it takes the full row
-      // rather than sitting there as a half-width stub.
-      $("#manage-cards-btn").classList.add("mode-tile-wide");
+
     } else {
       $("#summary-sub").textContent = "questions in this deck";
       $("#due-callout").classList.remove("hidden");
       studyButtons.forEach((b) => b.classList.remove("hidden"));
       $("#manage-cards-label").textContent = "Manage cards";
-      $("#manage-cards-btn").classList.remove("mode-tile-wide");
+
       const due = dueCount(deck);
       const callout = $("#due-callout");
       if (due > 0) {
@@ -3353,7 +3393,8 @@
   // ---------------------------------------------------------------
   const flash = {
     order: [], index: 0, known: 0, learning: 0, flipped: false,
-    sourceEntries: [], keepOrder: false, sessionXp: 0, leveledUp: false, newLevel: null,
+    sourceEntries: [], keepOrder: false, committed: null,
+    sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
   // A topic review spans decks, so neither the card nor the deck it belongs
@@ -3436,7 +3477,9 @@
     const card = $("#flash-card");
     card.classList.remove("flipped", "fly-left", "fly-right");
     flash.flipped = false;
-    $("#honesty-note").classList.add("hidden");
+    flash.committed = null;
+    $("#flash-commit").classList.remove("hidden");
+    $("#flash-after").classList.add("hidden");
     $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : q.type === "manual" ? "CARD" : "CLOZE";
     $("#flash-front-text").textContent = q.prompt;
     $("#flash-answer-text").textContent = q.answer;
@@ -3452,7 +3495,6 @@
   function flipFlashCard() {
     flash.flipped = !flash.flipped;
     $("#flash-card").classList.toggle("flipped", flash.flipped);
-    $("#honesty-note").classList.toggle("hidden", !flash.flipped);
     updateFlashZoomBtn();
     vibrate(8);
   }
@@ -3464,37 +3506,87 @@
     $("#flash-zoom-btn").classList.toggle("hidden", !id);
   }
 
-  function gradeFlashCard(known) {
+  // The grade is given BEFORE the answer appears. Judging yourself
+  // afterwards doesn't work: once you have seen it, it all looks familiar,
+  // and there is no reason to press the one that means more work. Asked
+  // while the answer is still hidden, the question is simply whether you
+  // can produce it — which you either can or can't.
+  const COMMIT_WORDS = { 2: "you knew it", 1: "you were shaky", 0: "you had no idea" };
+
+  function commitFlash(quality) {
+    if (flash.committed !== null) return;
     const q = currentFlashQuestion();
     const deck = poolDeckFor(q.id);
+    flash.committed = quality;
+
     profile.stats.cardsGraded++;
     noteReviewed();
     if (sitting.active) sitting.done++;
-    gradeQuestion(deck, q.id, known);
+    gradeQuestion(deck, q.id, quality);
     upsertDeck(deck);
-    if (known) flash.known++; else flash.learning++;
+    if (quality >= 1) flash.known++; else flash.learning++;
 
-    const xpGain = known ? XP_KNOWN : XP_LEARNING;
+    const xpGain = quality === 2 ? XP_KNOWN : quality === 1 ? Math.round((XP_KNOWN + XP_LEARNING) / 2) : XP_LEARNING;
     const xpResult = addXp(xpGain);
     flash.sessionXp += xpGain;
     if (xpResult.leveledUp) { flash.leveledUp = true; flash.newLevel = xpResult.newLevel; }
     touchStreak();
+    vibrate(quality === 0 ? [10, 40, 10] : [10]);
 
+    flash.flipped = true;
+    $("#flash-card").classList.add("flipped");
+    updateFlashZoomBtn();
+    $("#flash-commit").classList.add("hidden");
+    $("#flash-after").classList.remove("hidden");
+    $("#flash-said").textContent = "Before you looked, " + COMMIT_WORDS[quality] + ".";
+    // Owning up is only offered when there is something to own up to.
+    $("#flash-correct").classList.toggle("hidden", quality === 0);
+    $("#flash-correct").disabled = false;
+    $("#flash-correct").textContent = "I was off";
+  }
+
+  // The one honest correction the reveal can prompt: you said you knew it,
+  // then read the answer and found you didn't.
+  $("#flash-correct").addEventListener("click", () => {
+    if (flash.committed === null || flash.committed === 0) return;
+    const q = currentFlashQuestion();
+    const deck = poolDeckFor(q.id);
+    if (flash.committed >= 1) flash.known--; else flash.learning--;
+    flash.learning++;
+    flash.committed = 0;
+    gradeQuestion(deck, q.id, 0);
+    upsertDeck(deck);
+    $("#flash-said").textContent = "Marked as missed. It will come back soon.";
+    $("#flash-correct").disabled = true;
+    $("#flash-correct").textContent = "Noted";
+    vibrate([10, 30, 10]);
+  });
+
+  function advanceFlash() {
     const card = $("#flash-card");
-    card.classList.add(known ? "fly-right" : "fly-left");
-    vibrate(known ? [10] : [10, 40, 10]);
+    card.classList.add(flash.committed >= 1 ? "fly-right" : "fly-left");
     setTimeout(() => {
       flash.index++;
       renderFlashCard();
     }, 220);
   }
 
-  $("#flash-stage").addEventListener("click", (e) => {
-    if (e.target.closest(".flash-controls")) return;
-    flipFlashCard();
+  $("#flash-next").addEventListener("click", advanceFlash);
+  $("#commit-none").addEventListener("click", () => commitFlash(0));
+  $("#commit-shaky").addEventListener("click", () => commitFlash(1));
+  $("#commit-known").addEventListener("click", () => commitFlash(2));
+
+  $("#flash-stage").addEventListener("click", () => {
+    if (flash.committed === null) {
+      toast("Say how it went first — that's the part that counts.");
+      $("#flash-commit").classList.add("shake");
+      setTimeout(() => $("#flash-commit").classList.remove("shake"), 400);
+      vibrate([8, 30, 8]);
+      return;
+    }
+    // Already committed; the card is showing its answer and stays there.
   });
-  $("#flash-yes").addEventListener("click", () => gradeFlashCard(true));
-  $("#flash-no").addEventListener("click", () => gradeFlashCard(false));
+
 
   (function setupSwipe() {
     const card = $("#flash-card");
@@ -3519,7 +3611,7 @@
       dragging = false;
       card.style.transition = "";
       card.style.transform = "";
-      if (Math.abs(dx) > 90) gradeFlashCard(dx > 0);
+      if (Math.abs(dx) > 90 && flash.committed === null) commitFlash(dx > 0 ? 2 : 0);
       dx = 0;
     }
     card.addEventListener("pointerup", endDrag);

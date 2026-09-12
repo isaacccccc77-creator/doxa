@@ -397,17 +397,49 @@ button { font-family: inherit; }
   border: 1px solid rgba(193, 74, 55, 0.3);
 }
 
-/* Honest self-grading — quiet, but where the decision is made. */
-.honesty-note {
-  margin: 8px auto 0;
-  max-width: 34ch;
+/* Committing before the reveal. */
+.commit-ask {
+  margin: 10px auto 12px;
+  max-width: 36ch;
   text-align: center;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-style: italic;
   line-height: 1.45;
   color: var(--taupe);
-  opacity: 0.85;
 }
+.commit-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.commit-btn {
+  padding: 15px 6px;
+  font-size: 0.84rem;
+  font-weight: 650;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  color: var(--ink);
+}
+.commit-none { border-color: rgb(var(--accent-rgb) / 0.001); box-shadow: inset 0 0 0 1.5px var(--oxblood); color: var(--oxblood); }
+.commit-shaky { box-shadow: inset 0 0 0 1.5px var(--gold-dim); color: var(--gold-dim); }
+.commit-known { box-shadow: inset 0 0 0 1.5px var(--sage); color: var(--sage); }
+#flash-commit.shake { animation: commit-shake 0.38s ease-in-out; }
+@keyframes commit-shake {
+  0%, 100% { transform: translateX(0); }
+  22% { transform: translateX(-7px); }
+  50% { transform: translateX(6px); }
+  78% { transform: translateX(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #flash-commit.shake { animation: none; }
+}
+
+/* After the reveal: what you said, and the one correction worth offering. */
+.after-row { display: flex; flex-direction: column; gap: 12px; }
+.said-line {
+  text-align: center;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--taupe);
+}
+.after-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.after-actions .btn:disabled { opacity: 0.5; cursor: default; }
 
 /* What an exam this deck feeds into, from the deck's own screen. */
 .summary-exams { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
@@ -1877,33 +1909,10 @@ textarea.textarea-tall { min-height: 220px; }
   line-height: 1.5;
 }
 
-.swipe-hints {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--taupe);
-  padding: 0 8px;
-}
-
-.flash-controls { display: flex; justify-content: center; gap: 16px; padding-top: 4px; }
-.btn-round {
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  font-size: 1.15rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--hair);
-  background: transparent;
-}
-.btn-no { color: var(--oxblood); border-color: var(--oxblood); }
-.btn-yes { color: var(--sage); border-color: var(--sage); }
-.btn-round:active { transform: scale(0.88); }
 @media (hover: hover) and (pointer: fine) {
-  .btn-no:hover { background: rgba(143, 66, 53, 0.08); }
-  .btn-yes:hover { background: rgba(76, 107, 71, 0.08); }
+  .commit-none:hover { background: rgb(var(--accent-rgb) / 0.04); border-color: var(--oxblood); }
+  .commit-shaky:hover { background: rgb(var(--accent-rgb) / 0.06); border-color: var(--gold-dim); }
+  .commit-known:hover { background: rgb(var(--accent-rgb) / 0.04); border-color: var(--sage); }
 }
 
 /* Essay practice */
