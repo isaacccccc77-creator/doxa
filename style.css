@@ -225,6 +225,63 @@ button { font-family: inherit; }
   border: 1px solid rgba(193, 74, 55, 0.3);
 }
 
+/* Honest self-grading — quiet, but where the decision is made. */
+.honesty-note {
+  margin: 8px auto 0;
+  max-width: 34ch;
+  text-align: center;
+  font-size: 0.66rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--taupe);
+  opacity: 0.85;
+}
+
+/* What an exam this deck feeds into, from the deck's own screen. */
+.summary-exams { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+.covers-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 98, 47, 0.32);
+  background: rgba(226, 98, 47, 0.07);
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+.covers-label { font-size: 0.72rem; font-weight: 650; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.covers-days { font-size: 0.68rem; font-weight: 700; color: var(--coral); flex-shrink: 0; }
+
+/* Per-area readiness inside an exam. */
+.area-list { display: flex; flex-direction: column; gap: 9px; }
+.area-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 14px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: transform 0.14s var(--bounce);
+}
+.area-row:active { transform: scale(0.985); }
+.area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.area-label { font-size: 0.86rem; font-weight: 650; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.area-pct { font-size: 0.78rem; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.area-track { display: block; height: 6px; border-radius: 4px; background: rgba(125, 112, 87, 0.15); overflow: hidden; }
+.area-fill { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold-bright), var(--gold)); }
+.area-foot { font-size: 0.64rem; color: var(--taupe); }
+
 /* ---------------- Exams ---------------- */
 .today-exam {
   display: flex;

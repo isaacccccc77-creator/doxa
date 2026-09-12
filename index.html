@@ -297,6 +297,10 @@
     <h2 class="section-title">The numbers</h2>
     <div id="exam-stats" class="bento-grid stat-grid"></div>
 
+    <h2 class="section-title">Where you stand</h2>
+    <p class="section-note">Weakest first. Tap one to work on it.</p>
+    <div id="exam-areas" class="area-list"></div>
+
     <button id="exam-study-btn" class="btn btn-primary btn-full btn-arrow-cta">
       <span id="exam-study-label">Study this exam</span><span class="btn-arrow">→</span>
     </button>
@@ -336,30 +340,28 @@
     <div class="summary-badge" id="summary-count">0</div>
     <p class="summary-sub" id="summary-sub">questions in this deck</p>
     <div id="due-callout" class="due-callout">0 due for review</div>
+    <div id="summary-exams" class="summary-exams hidden"></div>
     <div class="mode-bento">
-      <button id="start-smart-review" class="btn bento-tile bento-tile-gold mode-tile mode-tile-wide">
+      <button id="start-review" class="btn bento-tile bento-tile-gold mode-tile mode-tile-wide">
         <span class="mode-tile-icon">⚡</span>
-        <span class="mode-tile-label" id="smart-review-label">Smart Review</span>
+        <span class="mode-tile-label" id="review-label">Review</span>
         <span class="btn-arrow">→</span>
-      </button>
-      <button id="start-flashcards" class="btn bento-tile bento-tile-teal mode-tile">
-        <span class="mode-tile-icon">🗂️</span>
-        <span class="mode-tile-label">Flashcards</span>
       </button>
       <button id="start-essay" class="btn bento-tile bento-tile-coral mode-tile">
         <span class="mode-tile-icon">📝</span>
         <span class="mode-tile-label" id="essay-tile-label">Essay</span>
+      </button>
+      <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile">
+        <span class="mode-tile-icon">✏️</span>
+        <span class="mode-tile-label" id="manage-cards-label">Manage cards</span>
       </button>
       <button id="start-sticking" class="btn bento-tile bento-tile-oxblood mode-tile mode-tile-wide hidden">
         <span class="mode-tile-icon">🩹</span>
         <span class="mode-tile-label" id="sticking-label">Sticking points</span>
         <span class="btn-arrow">→</span>
       </button>
-      <button id="manage-cards-btn" class="btn bento-tile bento-tile-violet mode-tile mode-tile-wide">
-        <span class="mode-tile-icon">✏️</span>
-        <span class="mode-tile-label" id="manage-cards-label">Manage cards</span>
-      </button>
     </div>
+    <button id="start-review-all" class="btn-text hidden">Go through all of them instead</button>
     <button id="summary-delete" class="btn btn-text">Delete this deck</button>
   </main>
 </section>
@@ -462,6 +464,7 @@
       <span>Still learning</span>
       <span>Got it</span>
     </div>
+    <p id="honesty-note" class="honesty-note hidden">Tick it only if you really recalled it — the schedule is built from your answers.</p>
     <div class="flash-controls">
       <button id="flash-no" class="btn btn-round btn-no" aria-label="Still learning">✕</button>
       <button id="flash-yes" class="btn btn-round btn-yes" aria-label="Got it">✓</button>

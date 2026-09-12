@@ -1526,6 +1526,68 @@
     return Math.max(5, Math.round(graded / days));
   }
 
+  // Which exams a deck feeds into. The link only ever existed in one
+  // direction — you could say what an exam covered, but standing in a deck
+  // you had no idea whether it counted toward anything.
+  function examsCoveringDeck(deck) {
+    return loadExams().filter((exam) => {
+      if (daysUntil(exam.date) < 0) return false;
+      const wantDecks = exam.deckIds || [];
+      const wantTags = exam.tags || [];
+      if (wantDecks.length === 0 && wantTags.length === 0) return true;
+      if (wantDecks.indexOf(deck.id) !== -1) return true;
+      return deck.questions.some((q) => wantTags.some((t) => tagsOf(q).indexOf(t) !== -1));
+    });
+  }
+
+  // An exam's scope broken into the areas it was defined by, so "how far
+  // have I got" has an answer per subject rather than one blended number.
+  function examBreakdown(exam) {
+    const decks = loadDecks();
+    const wantDecks = exam.deckIds || [];
+    const wantTags = exam.tags || [];
+    const areas = [];
+
+    function cardsInDeck(deck) {
+      return deck.questions.map((q) => ({ q, deck }));
+    }
+    function cardsWithTag(tag) {
+      const out = [];
+      decks.forEach((deck) => deck.questions.forEach((q) => {
+        if (tagsOf(q).indexOf(tag) !== -1) out.push({ q, deck });
+      }));
+      return out;
+    }
+
+    if (wantDecks.length === 0 && wantTags.length === 0) {
+      decks.forEach((deck) => areas.push({ label: deck.title, kind: "deck", key: deck.id, cards: cardsInDeck(deck) }));
+    } else {
+      wantDecks.forEach((id) => {
+        const deck = decks.find((d) => d.id === id);
+        if (deck) areas.push({ label: deck.title, kind: "deck", key: id, cards: cardsInDeck(deck) });
+      });
+      wantTags.forEach((tag) => {
+        const cards = cardsWithTag(tag);
+        if (cards.length) areas.push({ label: tag, kind: "tag", key: tag, cards });
+      });
+    }
+
+    return areas.map((a) => {
+      let solid = 0, seen = 0;
+      a.cards.forEach(({ q, deck }) => {
+        const m = getMastery(deck, q.id);
+        const reps = m ? (m.reps || 0) : 0;
+        if (reps >= SOLID_REPS) solid++;
+        if (reps > 0) seen++;
+      });
+      return {
+        label: a.label, kind: a.kind, key: a.key, cards: a.cards,
+        total: a.cards.length, solid, seen, unseen: a.cards.length - seen,
+        pct: a.cards.length ? Math.round((solid / a.cards.length) * 100) : 0,
+      };
+    }).sort((x, y) => x.pct - y.pct || y.total - x.total);
+  }
+
   function examScopeEntries(exam) {
     const wantDecks = exam.deckIds || [];
     const wantTags = exam.tags || [];
@@ -1839,6 +1901,37 @@
         <div class="ledger-value">${formatNumber(t.raw)}</div>
       </div>
     `).join("");
+
+    const areas = examBreakdown(exam);
+    const areaList = $("#exam-areas");
+    areaList.innerHTML = "";
+    areas.forEach((a) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "area-row";
+      row.innerHTML = `
+        <span class="area-head">
+          <span class="area-label">${a.kind === "tag" ? "#" : ""}${escapeHtml(a.label)}</span>
+          <span class="area-pct">${a.pct}%</span>
+        </span>
+        <span class="area-track"><span class="area-fill" style="width:${a.pct}%"></span></span>
+        <span class="area-foot">${a.solid} of ${a.total} solid${a.unseen ? ` · ${a.unseen} never seen` : ""}</span>
+      `;
+      row.addEventListener("click", () => {
+        const cards = a.cards.slice();
+        shuffleArr(cards);
+        currentDeck = null;
+        toast(`${a.kind === "tag" ? "#" : ""}${a.label} — weakest first`);
+        // Cards you've never seen first, then the least practised.
+        cards.sort((x, y) => {
+          const rx = (getMastery(x.deck, x.q.id) || {}).reps || 0;
+          const ry = (getMastery(y.deck, y.q.id) || {}).reps || 0;
+          return rx - ry;
+        });
+        beginFlashcardsSession(cards.slice(0, TODAY_BATCH), true);
+      });
+      areaList.appendChild(row);
+    });
 
     const due = f.entries.filter(({ q, deck }) => isDue(deck, q.id)).length;
     $("#exam-study-label").textContent = due > 0 ? `Study this exam (${due} due)` : "Study this exam";
@@ -2284,7 +2377,22 @@
     $("#summary-title").textContent = deck.title;
     $("#summary-count").textContent = deck.questions.length;
 
-    const studyButtons = [$("#start-smart-review"), $("#start-flashcards"), $("#start-essay")];
+    const studyButtons = [$("#start-review"), $("#start-essay")];
+    const covering = examsCoveringDeck(deck);
+    const examWrap = $("#summary-exams");
+    examWrap.innerHTML = "";
+    examWrap.classList.toggle("hidden", covering.length === 0);
+    covering.forEach((exam) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "covers-chip";
+      const days = daysUntil(exam.date);
+      chip.innerHTML = `<span class="covers-label">Counts toward ${escapeHtml(exam.title)}</span>` +
+        `<span class="covers-days">${countdownWords(days)}</span>`;
+      chip.addEventListener("click", () => { renderExams(); openExam(exam); });
+      examWrap.appendChild(chip);
+    });
+
     const essayCount = deck.questions.filter((q) => inferKind(q) === "essay").length;
     $("#essay-tile-label").textContent = essayCount ? `Essay (${essayCount})` : "Essay";
     const stuck = stickingPoints(deck);
@@ -2296,6 +2404,7 @@
       $("#due-callout").classList.add("hidden");
       studyButtons.forEach((b) => b.classList.add("hidden"));
       stickingBtn.classList.add("hidden");
+      $("#start-review-all").classList.add("hidden");
       $("#manage-cards-label").textContent = "Add your first card";
     } else {
       $("#summary-sub").textContent = "questions in this deck";
@@ -2307,11 +2416,15 @@
       if (due > 0) {
         callout.textContent = `${due} card${due === 1 ? "" : "s"} due for review`;
         callout.className = "due-callout has-due";
-        $("#smart-review-label").textContent = `Smart Review (${due})`;
+        $("#review-label").textContent = `Review ${due} due`;
+        $("#start-review-all").classList.remove("hidden");
+        $("#start-review-all").textContent = `Go through all ${deck.questions.length} instead`;
       } else {
         callout.textContent = "All caught up";
         callout.className = "due-callout all-caught";
-        $("#smart-review-label").textContent = "Review all";
+        $("#review-label").textContent = `Review all ${deck.questions.length}`;
+        // Nothing is due, so the main button already goes through everything.
+        $("#start-review-all").classList.add("hidden");
       }
     }
     showScreen("screen-summary");
@@ -2695,7 +2808,7 @@
   // ---------------------------------------------------------------
   const flash = {
     order: [], index: 0, known: 0, learning: 0, flipped: false,
-    sourceEntries: [], sessionXp: 0, leveledUp: false, newLevel: null,
+    sourceEntries: [], keepOrder: false, sessionXp: 0, leveledUp: false, newLevel: null,
   };
 
   // A topic review spans decks, so neither the card nor the deck it belongs
@@ -2723,11 +2836,15 @@
     return pool.decks.get(pool.deckOfCard.get(qid)) || currentDeck;
   }
 
-  function beginFlashcardsSession(entries) {
+  // Sessions are shuffled by default. Callers that have already put the
+  // cards in a deliberate order — weakest first, say — pass keepOrder,
+  // otherwise the shuffle here would quietly undo their work.
+  function beginFlashcardsSession(entries, keepOrder) {
     setSessionPool(entries);
     flash.sourceEntries = entries;
+    flash.keepOrder = !!keepOrder;
     flash.order = entries.map((e) => e.q.id);
-    shuffleArr(flash.order);
+    if (!keepOrder) shuffleArr(flash.order);
     flash.index = 0;
     flash.known = 0;
     flash.learning = 0;
@@ -2738,15 +2855,20 @@
     showScreen("screen-flash");
   }
 
-  $("#start-flashcards").addEventListener("click", () => {
-    if (!currentDeck) return;
-    beginFlashcardsSession(withDeck(currentDeck.questions, currentDeck));
-  });
-
-  $("#start-smart-review").addEventListener("click", () => {
+  // One entry point. When cards are due it reviews those; when none are,
+  // it goes through the deck. The old pair did the same thing whenever
+  // nothing was due, which just made you choose between identical doors.
+  $("#start-review").addEventListener("click", () => {
     if (!currentDeck) return;
     const due = currentDeck.questions.filter((q) => isDue(currentDeck, q.id));
     beginFlashcardsSession(withDeck(due.length ? due : currentDeck.questions, currentDeck));
+  });
+
+  // Going through everything is still possible, just not offered as an
+  // equal choice — it's the exception, not the default.
+  $("#start-review-all").addEventListener("click", () => {
+    if (!currentDeck) return;
+    beginFlashcardsSession(withDeck(currentDeck.questions, currentDeck));
   });
 
   $("#flash-shuffle").addEventListener("click", () => {
@@ -2769,6 +2891,7 @@
     const card = $("#flash-card");
     card.classList.remove("flipped", "fly-left", "fly-right");
     flash.flipped = false;
+    $("#honesty-note").classList.add("hidden");
     $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : q.type === "manual" ? "CARD" : "CLOZE";
     $("#flash-front-text").textContent = q.prompt;
     $("#flash-answer-text").textContent = q.answer;
@@ -2784,6 +2907,7 @@
   function flipFlashCard() {
     flash.flipped = !flash.flipped;
     $("#flash-card").classList.toggle("flipped", flash.flipped);
+    $("#honesty-note").classList.toggle("hidden", !flash.flipped);
     updateFlashZoomBtn();
     vibrate(8);
   }
@@ -2898,7 +3022,9 @@
     if (flash.leveledUp || newlyBadges.length) { burstConfetti(); vibrate([15, 40, 15]); }
 
     $("#results-retry").textContent = "Study these again";
-    $("#results-retry").onclick = () => beginFlashcardsSession(flash.sourceEntries);
+    const retryEntries = flash.sourceEntries;
+    const retryOrdered = flash.keepOrder;
+    $("#results-retry").onclick = () => beginFlashcardsSession(retryEntries, retryOrdered);
     $("#results-home").onclick = () => { renderHome(); showScreen("screen-home"); };
     showScreen("screen-results");
   }
