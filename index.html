@@ -593,6 +593,15 @@
   </header>
   <main class="home-main manage-main">
     <div class="card-panel manage-editor" id="card-editor">
+      <button type="button" id="import-open-btn" class="paste-cta">
+        <span class="paste-cta-icon">📋</span>
+        <span class="paste-cta-text">
+          <span class="paste-cta-title">Paste a list</span>
+          <span class="paste-cta-sub">Turn notes you already have into cards, all at once</span>
+        </span>
+        <span class="paste-cta-go" aria-hidden="true">→</span>
+      </button>
+
       <div class="kind-picker" role="group" aria-label="What kind of card?">
         <button type="button" class="kind-btn" data-kind="quick">
           <span class="kind-icon">⚡</span>
@@ -652,10 +661,40 @@
 </section>
 
 <!-- FLASHCARDS -->
+<!-- PASTE A LIST -->
+<section id="screen-import" class="screen">
+  <header class="topbar">
+    <button id="import-back" class="icon-btn" aria-label="Back">←</button>
+    <div class="wordmark">Paste a list</div>
+  </header>
+  <main class="home-main manage-main">
+    <div class="card-panel">
+      <p class="kind-blurb">Paste from your notes, a revision guide, a spreadsheet, anything with a term on one side and its meaning on the other. It works out how the list is laid out — check what it found before you add it.</p>
+
+      <label class="field-label" for="import-text">Your list</label>
+      <textarea id="import-text" class="textarea-small import-text" placeholder="Mitochondria — the powerhouse of the cell&#10;Ribosome — where protein is made"></textarea>
+
+      <div class="import-modes" id="import-modes" role="group" aria-label="How the list is laid out"></div>
+      <p class="import-verdict" id="import-verdict"></p>
+
+      <label class="field-label" for="import-tags">Topics for all of them <span class="optional">(optional)</span></label>
+      <input id="import-tags" type="text" placeholder="cells, genetics" maxlength="200" />
+
+      <button id="import-add-btn" class="btn btn-primary btn-full" disabled>Add cards</button>
+    </div>
+
+    <div class="manage-list-col">
+      <h2 class="section-title" id="import-count-label">Nothing yet</h2>
+      <div id="import-preview" class="import-preview"></div>
+    </div>
+  </main>
+</section>
+
 <section id="screen-flash" class="screen">
   <header class="topbar">
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Exit">←</button>
     <div class="progress-track"><div id="flash-progress" class="progress-fill"></div></div>
+    <button id="flash-type-btn" class="icon-btn" aria-label="Type your answers" aria-pressed="false">⌨</button>
     <button id="flash-shuffle" class="icon-btn" aria-label="Shuffle">↻</button>
   </header>
   <main class="flash-main">
@@ -685,6 +724,16 @@
         <button id="commit-none" class="btn commit-btn commit-none">No idea</button>
         <button id="commit-shaky" class="btn commit-btn commit-shaky">Shaky</button>
         <button id="commit-known" class="btn commit-btn commit-known">I know it</button>
+      </div>
+    </div>
+
+    <div id="flash-type" class="hidden">
+      <p class="commit-ask">Write the answer, then check it. Producing it is the part that sticks.</p>
+      <input id="flash-type-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
+             spellcheck="false" maxlength="200" placeholder="Type your answer" />
+      <div class="type-row">
+        <button id="flash-type-blank" class="btn btn-secondary">No idea</button>
+        <button id="flash-type-check" class="btn btn-primary">Check</button>
       </div>
     </div>
 

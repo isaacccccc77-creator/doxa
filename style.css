@@ -424,7 +424,7 @@ button { font-family: inherit; }
 .commit-none { border-color: rgb(var(--accent-rgb) / 0.001); box-shadow: inset 0 0 0 1.5px var(--oxblood); color: var(--oxblood); }
 .commit-shaky { box-shadow: inset 0 0 0 1.5px var(--gold-dim); color: var(--gold-dim); }
 .commit-known { box-shadow: inset 0 0 0 1.5px var(--sage); color: var(--sage); }
-#flash-commit.shake { animation: commit-shake 0.38s ease-in-out; }
+#flash-commit.shake, #flash-type.shake { animation: commit-shake 0.38s ease-in-out; }
 @keyframes commit-shake {
   0%, 100% { transform: translateX(0); }
   22% { transform: translateX(-7px); }
@@ -432,7 +432,7 @@ button { font-family: inherit; }
   78% { transform: translateX(-3px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  #flash-commit.shake { animation: none; }
+  #flash-commit.shake, #flash-type.shake { animation: none; }
 }
 
 /* After the reveal: what you said, and the one correction worth offering. */
@@ -799,6 +799,146 @@ input[type="date"] { font-family: inherit; }
   color: var(--violet);
 }
 .scape-btn.active .scape-icon { filter: none; opacity: 1; }
+
+/* Typing the answer instead of judging yourself on it */
+/* The box and its two buttons are taller than the three commit buttons
+   they replace, so on a short screen they were pushed under the fold —
+   give the card back the difference. */
+.flash-main.typing .flash-stage { min-height: 150px; }
+.flash-main.typing .flash-card { max-height: 300px; }
+/* On a short screen the card gives up more, and the instruction goes: the
+   placeholder in the box says the same thing in less room. */
+@media (max-height: 660px) {
+  .flash-main.typing .flash-stage { min-height: 100px; }
+  .flash-main.typing .flash-card { max-height: 200px; }
+  .flash-main.typing .commit-ask { display: none; }
+}
+#flash-type { display: flex; flex-direction: column; gap: 10px; }
+#flash-type.hidden { display: none; }
+#flash-type-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+}
+#flash-type-input:focus { outline: none; border-color: var(--violet); }
+.type-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; }
+#flash-type-btn[aria-pressed="true"] {
+  border-color: var(--violet);
+  color: var(--violet);
+  opacity: 1;
+}
+.typed-line { font-size: 0.72rem; line-height: 1.45; }
+.typed-line b { font-weight: 700; }
+.typed-verdict-2 { color: var(--sage); }
+.typed-verdict-1 { color: var(--gold-dim); }
+.typed-verdict-0 { color: var(--coral); }
+
+/* Paste a list */
+.paste-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 15px;
+  margin-bottom: 16px;
+  border-radius: 15px;
+  border: 1.5px dashed var(--hair);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--taupe);
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.14s var(--bounce);
+}
+.paste-cta:active { transform: scale(0.985); }
+.paste-cta-icon { font-size: 1.15rem; line-height: 1; }
+.paste-cta-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.paste-cta-title { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
+.paste-cta-sub { font-size: 0.64rem; line-height: 1.35; }
+.paste-cta-go { flex: 0 0 auto; opacity: 0.45; }
+
+.import-text { min-height: 180px; font-size: 0.85rem; line-height: 1.55; }
+.import-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 8px; }
+.import-modes.hidden { display: none; }
+.import-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  color: var(--taupe);
+  font-size: 0.68rem;
+  font-weight: 650;
+  transition: border-color 0.18s ease, opacity 0.18s ease;
+}
+.import-mode:disabled { opacity: 0.35; cursor: default; }
+.import-mode.active { border-color: var(--violet); color: var(--violet); }
+.import-mode-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(var(--shadow-rgb) / 0.1);
+}
+.import-mode.active .import-mode-count { background: rgb(122 94 214 / 0.16); }
+.import-verdict { font-size: 0.68rem; line-height: 1.45; color: var(--taupe); margin-bottom: 4px; }
+
+.import-preview { display: flex; flex-direction: column; gap: 6px; }
+.import-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 13px;
+  border-radius: 13px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  color: var(--taupe);
+  transition: opacity 0.16s ease, border-color 0.16s ease;
+}
+.import-row.off { opacity: 0.45; }
+.import-tick {
+  flex: 0 0 auto;
+  width: 17px; height: 17px;
+  margin-top: 1px;
+  border-radius: 5px;
+  border: 1.5px solid var(--hair);
+  background: var(--violet);
+  color: #fdfcfa;
+  font-size: 0.62rem;
+  line-height: 15px;
+  text-align: center;
+}
+.import-row.off .import-tick { background: none; border-color: var(--hair); }
+.import-row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.import-row-front { font-size: 0.82rem; font-weight: 650; color: var(--ink); }
+.import-row-back { font-size: 0.7rem; line-height: 1.4; }
+.import-row-front, .import-row-back {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.import-more { font-size: 0.66rem; color: var(--taupe); padding: 8px 4px; }
+.import-row-tag {
+  flex: 0 0 auto;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgb(var(--shadow-rgb) / 0.1);
+}
 
 /* Papers tab: the source picker and the history under it */
 .paper-source-list { display: flex; flex-direction: column; gap: 8px; }
@@ -2408,4 +2548,6 @@ textarea.textarea-tall { min-height: 220px; }
 @media (min-width: 1180px) {
   .home-dash { grid-template-columns: minmax(0, 1fr) 340px; }
   #manage-card-list { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  #import-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 8px; align-items: start; }
+  .import-text { min-height: 260px; }
 }

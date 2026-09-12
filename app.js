@@ -271,6 +271,7 @@
     p.scape = p.scape || "rain";
     p.sittingTarget = p.sittingTarget || 25;
     p.sfx = p.sfx !== false;
+    p.typeAnswers = p.typeAnswers === true;
     return p;
   }
   function saveProfile(p) {
@@ -1763,6 +1764,211 @@
   // The soundscapes are the one part of the app with no visible output to
   // assert on, so the engine is reachable for tests.
   window.__doxaAmbience = Ambience;
+
+  // ---------------------------------------------------------------
+  // TEXT: two pieces of pure logic with no screen of their own — marking a
+  // typed answer, and reading a pasted list into cards. Both are the sort
+  // of thing that is wrong in ways you only find by trying a hundred
+  // inputs, so both are exported for tests at the bottom of this section.
+  // ---------------------------------------------------------------
+
+  // Words that carry no meaning in a one-line answer. Dropping them is
+  // what lets "the powerhouse of the cell" match "powerhouse of cell".
+  const ANSWER_STOPWORDS = new Set([
+    "a", "an", "the", "of", "in", "to", "is", "are", "was", "were", "be",
+    "been", "and", "or", "for", "with", "by", "on", "at", "from", "as",
+    "that", "this", "it", "its", "into", "than", "then", "which", "when",
+    "where", "who", "whom", "s",
+  ]);
+
+  function normaliseAnswer(text) {
+    return String(text == null ? "" : text)
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function answerTokens(norm) {
+    const all = norm ? norm.split(" ") : [];
+    const content = all.filter((t) => !ANSWER_STOPWORDS.has(t));
+    // An answer that is nothing but stopwords still has to be comparable.
+    return content.length ? content : all;
+  }
+
+  function editDistance(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = new Array(b.length + 1);
+    for (let j = 0; j <= b.length; j++) prev[j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      const cur = new Array(b.length + 1);
+      cur[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1)
+        );
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  // Two readings of the same pair, because they fail in opposite ways.
+  // Token overlap forgives word order and padding but not a typo; edit
+  // distance forgives a typo but not a rearrangement.
+  function answerScores(givenNorm, wantNorm) {
+    const g = answerTokens(givenNorm);
+    const w = answerTokens(wantNorm);
+    let hits = 0;
+    const pool = g.slice();
+    w.forEach((t) => {
+      const i = pool.indexOf(t);
+      if (i !== -1) { pool.splice(i, 1); hits++; }
+    });
+    const recall = w.length ? hits / w.length : 0;
+    // Writing three times as much as the card asked for is not the same as
+    // knowing it, but it isn't wrong either — a mild penalty, not a veto.
+    const padding = Math.min(1, w.length / Math.max(1, g.length));
+    const tokenScore = recall * (0.65 + 0.35 * padding);
+
+    let charScore = 0;
+    if (givenNorm.length <= 200 && wantNorm.length <= 200) {
+      const longest = Math.max(givenNorm.length, wantNorm.length);
+      if (longest) charScore = 1 - editDistance(givenNorm, wantNorm) / longest;
+    }
+    return { tokenScore, charScore };
+  }
+
+  // 2 = had it, 1 = close, 0 = missed. The thresholds differ per measure
+  // because they mean different things: nearly all the key words, or at
+  // most about one wrong character in six.
+  function gradeTypedAnswer(given, expected) {
+    const g = normaliseAnswer(given);
+    const w = normaliseAnswer(expected);
+    if (!g) return { quality: 0, tokenScore: 0, charScore: 0, exact: false };
+    if (!w) return { quality: 2, tokenScore: 1, charScore: 1, exact: false };
+    if (g === w) return { quality: 2, tokenScore: 1, charScore: 1, exact: true };
+    const { tokenScore, charScore } = answerScores(g, w);
+    const quality =
+      (tokenScore >= 0.9 || charScore >= 0.82) ? 2 :
+      (tokenScore >= 0.5 || charScore >= 0.55) ? 1 : 0;
+    return { quality, tokenScore, charScore, exact: false };
+  }
+
+  // ---- Reading a pasted list ----------------------------------------
+  const IMPORT_MODES = [
+    { id: "qa", label: "Q: / A:" },
+    { id: "tab", label: "Tab" },
+    { id: "pipe", label: "Bar |" },
+    { id: "dash", label: "Dash –" },
+    { id: "colon", label: "Colon :" },
+    { id: "pairs", label: "Two lines" },
+  ];
+
+  // Each needs whitespace or an unambiguous character so it can't fire on
+  // a hyphenated word or a clock time.
+  const IMPORT_SEP = {
+    tab: /\t+/,
+    pipe: /\s*\|\s*/,
+    dash: /\s+[-\u2010-\u2015]\s+/,
+    colon: /\s*:\s+/,
+  };
+
+  const IMPORT_MAX_CARDS = 500;
+  const IMPORT_PREVIEW_ROWS = 150;
+  const IMPORT_MAX_FRONT = 500;
+  const IMPORT_MAX_BACK = 2000;
+
+  function importLines(text) {
+    return String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
+  }
+
+  // Notes come out of a document with bullets and numbering attached.
+  function cleanImportLine(line) {
+    return String(line).replace(/^\s*(?:\d+[.)]|[-\u2010-\u2015\u2022*\u00b7])\s+/, "").trim();
+  }
+
+  function splitOnce(line, re) {
+    const m = line.match(re);
+    if (!m || m.index === undefined) return null;
+    return [line.slice(0, m.index), line.slice(m.index + m[0].length)];
+  }
+
+  function parseImport(text, mode) {
+    const raw = importLines(text);
+    const cards = [];
+    let skipped = 0;
+
+    const add = (front, back) => {
+      const f = front.trim().slice(0, IMPORT_MAX_FRONT);
+      const b = back.trim().slice(0, IMPORT_MAX_BACK);
+      if (!f || !b) { skipped++; return; }
+      if (cards.length < IMPORT_MAX_CARDS) cards.push({ front: f, back: b });
+    };
+
+    if (mode === "qa") {
+      let front = null;
+      raw.forEach((r) => {
+        const line = cleanImportLine(r);
+        if (!line) return;
+        const q = line.match(/^q\s*[:.)]\s*(.*)$/i);
+        if (q) {
+          if (front !== null) skipped++;
+          front = q[1].trim();
+          return;
+        }
+        const a = line.match(/^a\s*[:.)]\s*(.*)$/i);
+        if (a && front !== null) { add(front, a[1]); front = null; return; }
+        skipped++;
+      });
+      if (front !== null) skipped++;
+      return { cards, skipped };
+    }
+
+    if (mode === "pairs") {
+      const lines = raw.map(cleanImportLine).filter(Boolean);
+      for (let i = 0; i + 1 < lines.length; i += 2) add(lines[i], lines[i + 1]);
+      if (lines.length % 2) skipped++;
+      return { cards, skipped };
+    }
+
+    const re = IMPORT_SEP[mode];
+    if (!re) return { cards, skipped: 0 };
+    raw.forEach((r) => {
+      const line = cleanImportLine(r);
+      if (!line) return;
+      const parts = splitOnce(line, re);
+      if (!parts) { skipped++; return; }
+      add(parts[0], parts[1]);
+    });
+    return { cards, skipped };
+  }
+
+  // Whichever reading accounts for the most of what was pasted. Two lines
+  // is weighted down because it always parses something, so it should only
+  // win when no real separator was found.
+  function detectImportMode(text) {
+    let bestId = "pairs";
+    let bestValue = -1;
+    IMPORT_MODES.forEach((m) => {
+      const r = parseImport(text, m.id);
+      if (!r.cards.length) return;
+      const total = r.cards.length + r.skipped;
+      const share = total ? r.cards.length / total : 0;
+      const value = share * (m.id === "pairs" ? 0.4 : 1);
+      if (value > bestValue) { bestValue = value; bestId = m.id; }
+    });
+    return bestId;
+  }
+
+  window.__doxaText = {
+    normaliseAnswer, gradeTypedAnswer, parseImport, detectImportMode,
+  };
   Ambience.setSfx(profile.sfx);
 
   // ---------------------------------------------------------------
@@ -3536,6 +3742,184 @@
   let cardKind = "quick";
 
   // Cards written before kinds existed still belong to one.
+  // ---------------------------------------------------------------
+  // PASTE A LIST: the slowest part of any card app is getting the material
+  // in. A student with a page of notes had to retype it one card at a time.
+  // ---------------------------------------------------------------
+  const importState = {
+    mode: null, auto: null, cards: [], skipped: 0, off: new Set(), touched: false,
+  };
+
+  function importFrontKey(text) {
+    return normaliseAnswer(text);
+  }
+
+  function existingFronts() {
+    const set = new Set();
+    if (currentDeck) currentDeck.questions.forEach((q) => set.add(importFrontKey(q.prompt)));
+    return set;
+  }
+
+  function renderImport() {
+    const text = $("#import-text").value;
+    const auto = detectImportMode(text);
+    importState.auto = auto;
+    const mode = importState.mode || auto;
+    const parsed = parseImport(text, mode);
+    importState.cards = parsed.cards;
+    importState.skipped = parsed.skipped;
+
+    // Which layouts would find anything at all, so the chips aren't a wall
+    // of options that all do nothing.
+    const counts = {};
+    IMPORT_MODES.forEach((m) => { counts[m.id] = parseImport(text, m.id).cards.length; });
+
+    const modeWrap = $("#import-modes");
+    modeWrap.innerHTML = "";
+    const hasText = text.trim().length > 0;
+    modeWrap.classList.toggle("hidden", !hasText);
+    if (hasText) {
+      IMPORT_MODES.forEach((m) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "import-mode" + (m.id === mode ? " active" : "");
+        btn.dataset.mode = m.id;
+        btn.disabled = counts[m.id] === 0;
+        btn.innerHTML = `<span class="import-mode-label">${escapeHtml(m.label)}</span>` +
+          `<span class="import-mode-count">${counts[m.id]}</span>`;
+        btn.addEventListener("click", () => {
+          importState.mode = m.id;
+          importState.off.clear();
+          renderImport();
+          vibrate(8);
+        });
+        modeWrap.appendChild(btn);
+      });
+    }
+
+    const known = existingFronts();
+    const dupes = [];
+    importState.cards.forEach((c, i) => {
+      if (known.has(importFrontKey(c.front))) dupes.push(i);
+    });
+    // A card you already have is off by default, but you can put it back.
+    if (!importState.touched) dupes.forEach((i) => importState.off.add(i));
+
+    const chosen = importState.cards.filter((c, i) => !importState.off.has(i));
+    $("#import-count-label").textContent = !hasText
+      ? "Nothing yet"
+      : `${chosen.length} of ${importState.cards.length} card${importState.cards.length === 1 ? "" : "s"}`;
+
+    const verdict = $("#import-verdict");
+    if (!hasText) {
+      verdict.textContent = "";
+    } else if (!importState.cards.length) {
+      verdict.textContent = "Can't see a pattern in that. Each card needs a front and a back — try separating them with a dash, a bar, or a tab.";
+    } else {
+      const bits = [`Read as ${IMPORT_MODES.find((m) => m.id === mode).label.toLowerCase()}`];
+      if (importState.skipped) bits.push(`${importState.skipped} line${importState.skipped === 1 ? "" : "s"} didn't fit`);
+      if (dupes.length) bits.push(`${dupes.length} already in this deck`);
+      if (importState.cards.length >= IMPORT_MAX_CARDS) bits.push(`capped at ${IMPORT_MAX_CARDS}`);
+      verdict.textContent = bits.join(" · ") + ".";
+    }
+
+    const list = $("#import-preview");
+    list.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    const shown = Math.min(importState.cards.length, IMPORT_PREVIEW_ROWS);
+    importState.cards.slice(0, shown).forEach((c, i) => {
+      const dupe = known.has(importFrontKey(c.front));
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "import-row" + (importState.off.has(i) ? " off" : "");
+      row.setAttribute("aria-pressed", importState.off.has(i) ? "false" : "true");
+      row.innerHTML = `
+        <span class="import-tick" aria-hidden="true">${importState.off.has(i) ? "" : "✓"}</span>
+        <span class="import-row-main">
+          <span class="import-row-front">${escapeHtml(c.front)}</span>
+          <span class="import-row-back">${escapeHtml(c.back)}</span>
+        </span>
+        ${dupe ? '<span class="import-row-tag">already here</span>' : ""}
+      `;
+      row.addEventListener("click", () => {
+        importState.touched = true;
+        if (importState.off.has(i)) importState.off.delete(i); else importState.off.add(i);
+        renderImport();
+        vibrate(6);
+      });
+      frag.appendChild(row);
+    });
+    if (importState.cards.length > shown) {
+      const more = document.createElement("p");
+      more.className = "import-more";
+      more.textContent =
+        `Showing the first ${shown}. All ${importState.cards.length} will be added.`;
+      frag.appendChild(more);
+    }
+    list.appendChild(frag);
+
+    $("#import-add-btn").disabled = chosen.length === 0;
+    $("#import-add-btn").textContent = chosen.length
+      ? `Add ${chosen.length} card${chosen.length === 1 ? "" : "s"}`
+      : "Add cards";
+  }
+
+  function openImport() {
+    if (!currentDeck) return;
+    importState.mode = null;
+    importState.off.clear();
+    importState.touched = false;
+    $("#import-text").value = "";
+    $("#import-tags").value = "";
+    renderImport();
+    showScreen("screen-import");
+    $("#import-text").focus();
+  }
+
+  $("#import-open-btn").addEventListener("click", openImport);
+  $("#import-back").addEventListener("click", () => {
+    renderManageList();
+    showScreen("screen-manage");
+  });
+  let importTimer = null;
+  $("#import-text").addEventListener("input", () => {
+    // A fresh paste is a fresh reading; don't keep an old override.
+    importState.mode = null;
+    importState.off.clear();
+    importState.touched = false;
+    clearTimeout(importTimer);
+    importTimer = setTimeout(renderImport, 120);
+  });
+
+  $("#import-add-btn").addEventListener("click", () => {
+    if (!currentDeck) return;
+    const chosen = importState.cards.filter((c, i) => !importState.off.has(i));
+    if (!chosen.length) return;
+    const tags = parseTags($("#import-tags").value);
+    const stamp = Date.now();
+    chosen.forEach((c, i) => {
+      currentDeck.questions.push({
+        // Five hundred cards land in the same millisecond, so the index is
+        // what actually keeps the ids apart.
+        id: "m" + stamp + i.toString(36) + Math.random().toString(36).slice(2, 7),
+        type: "manual",
+        kind: c.back.length > 220 ? "essay" : "quick",
+        prompt: c.front,
+        answer: c.back,
+        answerShort: c.back,
+        sourceSentence: "",
+        tags: tags,
+        imgFront: "",
+        imgBack: "",
+      });
+    });
+    upsertDeck(currentDeck);
+    celebrateBadges(checkBadges());
+    toast(`${chosen.length} card${chosen.length === 1 ? "" : "s"} added.`);
+    renderManageList();
+    showScreen("screen-manage");
+  });
+
   function inferKind(q) {
     if (q.kind && CARD_KINDS[q.kind]) return q.kind;
     if (q.imgFront) return "picture";
@@ -3810,6 +4194,7 @@
     if (!keepOrder) shuffleArr(flash.order);
     flash.index = 0;
     flash.known = 0;
+    updateTypeBtn();
     flash.learning = 0;
     flash.sessionXp = 0;
     flash.leveledUp = false;
@@ -3855,8 +4240,14 @@
     card.classList.remove("flipped", "fly-left", "fly-right");
     flash.flipped = false;
     flash.committed = null;
-    $("#flash-commit").classList.remove("hidden");
     $("#flash-after").classList.add("hidden");
+    flash.typed = profile.typeAnswers && canTypeAnswer(q);
+    flash.overrideTo = null;
+    $("#flash-type").classList.toggle("hidden", !flash.typed);
+    $("#flash-commit").classList.toggle("hidden", flash.typed);
+    $("#screen-flash .flash-main").classList.toggle("typing", flash.typed);
+    $("#flash-type-input").value = "";
+    if (flash.typed) { try { $("#flash-type-input").focus(); } catch (e) {} }
     $("#flash-tag").textContent = q.type === "define" ? "DEFINE" : q.type === "manual" ? "CARD" : "CLOZE";
     $("#flash-front-text").textContent = q.prompt;
     $("#flash-answer-text").textContent = q.answer;
@@ -3890,7 +4281,7 @@
   // can produce it — which you either can or can't.
   const COMMIT_WORDS = { 2: "you knew it", 1: "you were shaky", 0: "you had no idea" };
 
-  function commitFlash(quality) {
+  function commitFlash(quality, typed) {
     if (flash.committed !== null) return;
     const q = currentFlashQuestion();
     const deck = poolDeckFor(q.id);
@@ -3902,6 +4293,8 @@
     gradeQuestion(deck, q.id, quality);
     upsertDeck(deck);
     if (quality >= 1) flash.known++; else flash.learning++;
+    $("#flash-known-count").textContent = flash.known;
+    $("#flash-learning-count").textContent = flash.learning;
 
     const xpGain = quality === 2 ? XP_KNOWN : quality === 1 ? Math.round((XP_KNOWN + XP_LEARNING) / 2) : XP_LEARNING;
     const xpResult = addXp(xpGain);
@@ -3914,29 +4307,52 @@
     $("#flash-card").classList.add("flipped");
     updateFlashZoomBtn();
     $("#flash-commit").classList.add("hidden");
+    $("#flash-type").classList.add("hidden");
     $("#flash-after").classList.remove("hidden");
-    $("#flash-said").textContent = "Before you looked, " + COMMIT_WORDS[quality] + ".";
-    // Owning up is only offered when there is something to own up to.
-    $("#flash-correct").classList.toggle("hidden", quality === 0);
+
+    if (typed) {
+      const words = { 2: "counted as knowing it", 1: "counted as close", 0: "counted as missed" };
+      $("#flash-said").innerHTML =
+        `You wrote <b>${escapeHtml(typed.given)}</b> — <span class="typed-verdict-${quality}">${words[quality]}</span>.`;
+      $("#flash-said").className = "said-line typed-line";
+      // A marker can be wrong in both directions, so both are offered.
+      flash.overrideTo = quality === 2 ? 0 : 2;
+      $("#flash-correct").classList.remove("hidden");
+      $("#flash-correct").textContent = quality === 2 ? "I didn't really" : "I did have it";
+    } else {
+      $("#flash-said").textContent = "Before you looked, " + COMMIT_WORDS[quality] + ".";
+      $("#flash-said").className = "said-line";
+      // Owning up is only offered when there is something to own up to.
+      flash.overrideTo = quality === 0 ? null : 0;
+      $("#flash-correct").classList.toggle("hidden", quality === 0);
+      $("#flash-correct").textContent = "I was off";
+    }
     $("#flash-correct").disabled = false;
-    $("#flash-correct").textContent = "I was off";
   }
 
-  // The one honest correction the reveal can prompt: you said you knew it,
-  // then read the answer and found you didn't.
+  // The honest correction the reveal can prompt: you said you knew it and
+  // then read the answer and found you didn't — or the marker was harsh
+  // about wording and you did have it.
   $("#flash-correct").addEventListener("click", () => {
-    if (flash.committed === null || flash.committed === 0) return;
+    const to = flash.overrideTo;
+    if (flash.committed === null || to === null || to === flash.committed) return;
     const q = currentFlashQuestion();
     const deck = poolDeckFor(q.id);
     if (flash.committed >= 1) flash.known--; else flash.learning--;
-    flash.learning++;
-    flash.committed = 0;
-    gradeQuestion(deck, q.id, 0);
+    if (to >= 1) flash.known++; else flash.learning++;
+    flash.committed = to;
+    gradeQuestion(deck, q.id, to);
     upsertDeck(deck);
-    $("#flash-said").textContent = "Marked as missed. It will come back soon.";
+    $("#flash-known-count").textContent = flash.known;
+    $("#flash-learning-count").textContent = flash.learning;
+    $("#flash-said").textContent = to === 0
+      ? "Marked as missed. It will come back soon."
+      : "Marked as known. It won't come back for a while.";
+    $("#flash-said").className = "said-line";
     $("#flash-correct").disabled = true;
     $("#flash-correct").textContent = "Noted";
-    vibrate([10, 30, 10]);
+    flash.overrideTo = null;
+    vibrate(to === 0 ? [10, 30, 10] : [10]);
   });
 
   function advanceFlash() {
@@ -3953,11 +4369,70 @@
   $("#commit-shaky").addEventListener("click", () => commitFlash(1));
   $("#commit-known").addEventListener("click", () => commitFlash(2));
 
+  // ---------------------------------------------------------------
+  // TYPING THE ANSWER. Saying "I know it" and then reading the answer is
+  // recognition; writing it down first is recall, and recall is the thing
+  // that moves. Only offered where it's sensible — a short written answer
+  // with no picture standing in for it.
+  // ---------------------------------------------------------------
+  const TYPE_MAX_ANSWER = 60;
+
+  function canTypeAnswer(q) {
+    if (!q || q.imgBack) return false;
+    if (inferKind(q) !== "quick") return false;
+    const a = (q.answer || "").trim();
+    return a.length > 0 && a.length <= TYPE_MAX_ANSWER;
+  }
+
+  function updateTypeBtn() {
+    const btn = $("#flash-type-btn");
+    btn.setAttribute("aria-pressed", profile.typeAnswers ? "true" : "false");
+    btn.setAttribute("aria-label", profile.typeAnswers
+      ? "Stop typing your answers" : "Type your answers");
+  }
+
+  $("#flash-type-btn").addEventListener("click", () => {
+    profile.typeAnswers = !profile.typeAnswers;
+    saveProfile(profile);
+    updateTypeBtn();
+    vibrate(8);
+    toast(profile.typeAnswers
+      ? "Typing your answers. Short cards only."
+      : "Back to saying how it went.");
+    // Only change the card in front of you if it hasn't been answered yet.
+    if (flash.committed === null) renderFlashCard();
+  });
+
+  function checkTypedAnswer() {
+    if (flash.committed !== null || !flash.typed) return;
+    const q = currentFlashQuestion();
+    if (!q) return;
+    const given = $("#flash-type-input").value.trim();
+    if (!given) {
+      toast("Write something, or say you had no idea.");
+      return;
+    }
+    const result = gradeTypedAnswer(given, q.answer);
+    commitFlash(result.quality, { given });
+  }
+
+  $("#flash-type-check").addEventListener("click", checkTypedAnswer);
+  $("#flash-type-blank").addEventListener("click", () => {
+    if (flash.committed !== null || !flash.typed) return;
+    commitFlash(0, { given: "nothing" });
+  });
+  $("#flash-type-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); checkTypedAnswer(); }
+  });
+
   $("#flash-stage").addEventListener("click", () => {
     if (flash.committed === null) {
-      toast("Say how it went first — that's the part that counts.");
-      $("#flash-commit").classList.add("shake");
-      setTimeout(() => $("#flash-commit").classList.remove("shake"), 400);
+      toast(flash.typed
+        ? "Write the answer first — that's the part that counts."
+        : "Say how it went first — that's the part that counts.");
+      const prompt = flash.typed ? $("#flash-type") : $("#flash-commit");
+      prompt.classList.add("shake");
+      setTimeout(() => prompt.classList.remove("shake"), 400);
       vibrate([8, 30, 8]);
       return;
     }
