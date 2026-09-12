@@ -379,10 +379,10 @@
 <section id="screen-marking" class="screen">
   <header class="topbar">
     <div class="wordmark">Marking</div>
+    <div class="progress-track"><div id="marking-progress" class="progress-fill"></div></div>
     <div class="paper-count" id="marking-count">1 / 10</div>
   </header>
   <main class="essay-main">
-    <div class="progress-track"><div id="marking-progress" class="progress-fill"></div></div>
     <div class="essay-question" id="marking-question"></div>
     <div class="essay-block">
       <div class="essay-block-label">What you wrote <span id="marking-words" class="essay-block-count"></span></div>
@@ -393,11 +393,13 @@
       <img id="marking-image" class="card-img essay-img hidden" alt="Answer image" />
       <div class="essay-block-text" id="marking-model"></div>
     </div>
-    <div class="essay-grade-label">Mark it honestly — this is the whole point</div>
-    <div class="mark-row">
-      <button id="mark-none" class="btn btn-secondary">Missed it</button>
-      <button id="mark-half" class="btn btn-secondary">Half there</button>
-      <button id="mark-full" class="btn btn-primary">Got it</button>
+    <div class="mark-dock">
+      <div class="essay-grade-label">Mark it honestly — this is the whole point</div>
+      <div class="mark-row">
+        <button id="mark-none" class="btn btn-secondary">Missed it</button>
+        <button id="mark-half" class="btn btn-secondary">Half there</button>
+        <button id="mark-full" class="btn btn-primary">Got it</button>
+      </div>
     </div>
   </main>
 </section>

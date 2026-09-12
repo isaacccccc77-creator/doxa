@@ -1665,6 +1665,7 @@
   // An exam's scope broken into the areas it was defined by, so "how far
   // have I got" has an answer per subject rather than one blended number.
   function examBreakdown(exam) {
+    if (!exam) return [];
     const decks = loadDecks();
     const wantDecks = exam.deckIds || [];
     const wantTags = exam.tags || [];
@@ -2061,10 +2062,24 @@
     $("#marking-model").textContent = item.q.answer;
     paintCardImage($("#marking-image"), item.q.imgBack);
     window.scrollTo(0, 0);
+    syncMarkDock();
   }
+
+  // The mark buttons are docked to the bottom so a long model answer can
+  // never push them off screen. The veil behind them is only drawn while
+  // they are genuinely floating over the answer, otherwise it reads as a
+  // seam across an otherwise empty page.
+  function syncMarkDock() {
+    const dock = $(".mark-dock");
+    if (!dock) return;
+    const floating = document.documentElement.scrollHeight > window.innerHeight + 1;
+    dock.classList.toggle("is-stuck", floating);
+  }
+  window.addEventListener("resize", syncMarkDock);
 
   function markCurrent(value) {
     const item = paper.questions[paper.marking];
+    if (!item) return;
     paper.marks[paper.marking] = value;
 
     // Same three levels the cards use: full marks advance it, a half mark
@@ -2122,7 +2137,8 @@
 
     // Which areas the marks landed in.
     const byArea = new Map();
-    examBreakdown(paper.exam).forEach((a) => {
+    const sourceAreas = (paper.source && paper.source.areas) || examBreakdown(paper.exam);
+    sourceAreas.forEach((a) => {
       const ids = new Set(a.cards.map((c) => c.q.id));
       let got = 0, count = 0;
       paper.questions.forEach((item, i) => {
