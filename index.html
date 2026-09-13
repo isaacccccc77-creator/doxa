@@ -163,6 +163,9 @@
     <button class="tab" data-tab="screen-papers">
       <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
     </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
+    </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
@@ -214,6 +217,9 @@
     <button class="tab" data-tab="screen-papers">
       <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
     </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
+    </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
@@ -250,6 +256,9 @@
     </button>
     <button class="tab" data-tab="screen-papers">
       <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
     </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
@@ -486,6 +495,147 @@
     <button class="tab" data-tab="screen-papers">
       <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
     </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
+    </button>
+    <button class="tab" data-tab="screen-room">
+      <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
+    </button>
+    <button class="tab" data-tab="screen-cupboard">
+      <span class="tab-icon">🏆<span class="tab-pip hidden"></span></span><span class="tab-label">Cupboard</span>
+    </button>
+  </nav>
+</section>
+
+<!-- FOCUS: a clock you can watch without watching the clock -->
+<section id="screen-focus" class="screen">
+  <header class="topbar">
+    <div class="wordmark">Focus</div>
+    <div class="focus-tally" id="focus-tally"></div>
+  </header>
+  <main class="home-main tabbed-main focus-main">
+
+    <div id="focus-setup">
+      <p class="sitting-blurb">Set a stretch of time and pick something to watch it pass. Twenty-five minutes is a flight, a drive, or a dish — and the clock is the journey, not a number counting down at you.</p>
+
+      <h2 class="section-title">Where are you going</h2>
+      <div id="journey-grid" class="journey-grid"></div>
+
+      <h2 class="section-title">How long</h2>
+      <div id="focus-time-row" class="target-row focus-time-row"></div>
+
+      <button id="focus-begin" class="btn btn-primary btn-full btn-arrow-cta">
+        <span id="focus-begin-label">Set off</span><span class="btn-arrow">→</span>
+      </button>
+      <p class="hint" id="focus-hint"></p>
+    </div>
+
+    <div id="focus-run" class="hidden">
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 200 116" aria-hidden="true">
+          <path class="gauge-track" d="M 16 100 A 84 84 0 0 1 184 100" />
+          <path class="gauge-fill" id="gauge-fill" d="M 16 100 A 84 84 0 0 1 184 100" />
+        </svg>
+        <div class="gauge-marker" id="gauge-marker"><span id="gauge-marker-icon">✈️</span></div>
+        <div class="gauge-face">
+          <div class="gauge-time" id="focus-clock">25:00</div>
+          <div class="gauge-cap" id="focus-phase">Focus</div>
+        </div>
+      </div>
+
+      <p class="scene-line" id="focus-line"></p>
+
+      <div class="scene" id="focus-scene" aria-hidden="true">
+        <!-- FLIGHT -->
+        <svg class="scene-svg scene-flight" viewBox="0 0 320 110" preserveAspectRatio="xMidYMid slice">
+          <rect class="sky" x="0" y="0" width="320" height="110" />
+          <circle class="sun" cx="264" cy="30" r="13" />
+          <g class="cloud cloud-a">
+            <ellipse cx="0" cy="28" rx="22" ry="9" /><ellipse cx="14" cy="24" rx="15" ry="11" />
+          </g>
+          <g class="cloud cloud-b">
+            <ellipse cx="0" cy="52" rx="28" ry="10" /><ellipse cx="18" cy="47" rx="18" ry="12" />
+          </g>
+          <g class="cloud cloud-c">
+            <ellipse cx="0" cy="16" rx="16" ry="7" /><ellipse cx="10" cy="13" rx="11" ry="8" />
+          </g>
+          <path class="land" d="M0 96 Q 40 86 82 92 T 168 90 T 250 94 T 320 88 L 320 110 L 0 110 Z" />
+          <g class="tower">
+            <rect x="44" y="72" width="5" height="22" />
+            <path d="M38 72 h17 l-3 -9 h-11 z" />
+            <line x1="46.5" y1="63" x2="46.5" y2="54" />
+          </g>
+          <g class="tower">
+            <rect x="270" y="78" width="5" height="16" />
+            <path d="M264 78 h17 l-3 -8 h-11 z" />
+            <line x1="272.5" y1="70" x2="272.5" y2="62" />
+          </g>
+        </svg>
+
+        <!-- ROAD TRIP -->
+        <svg class="scene-svg scene-road" viewBox="0 0 320 110" preserveAspectRatio="xMidYMid slice">
+          <rect class="sky" x="0" y="0" width="320" height="110" />
+          <circle class="sun" cx="52" cy="26" r="12" />
+          <path class="hill hill-far" d="M0 74 Q 46 44 96 70 T 196 62 T 320 72 L 320 110 L 0 110 Z" />
+          <path class="hill hill-near" d="M0 86 Q 62 64 128 84 T 258 80 T 320 88 L 320 110 L 0 110 Z" />
+          <g class="trees">
+            <g class="tree" transform="translate(30 0)"><rect x="-1.5" y="76" width="3" height="10" /><path d="M0 60 l8 18 h-16 z" /></g>
+            <g class="tree" transform="translate(120 0)"><rect x="-1.5" y="78" width="3" height="9" /><path d="M0 64 l7 15 h-14 z" /></g>
+            <g class="tree" transform="translate(214 0)"><rect x="-1.5" y="75" width="3" height="11" /><path d="M0 58 l9 19 h-18 z" /></g>
+            <g class="tree" transform="translate(300 0)"><rect x="-1.5" y="77" width="3" height="10" /><path d="M0 62 l8 17 h-16 z" /></g>
+          </g>
+          <rect class="road" x="0" y="94" width="320" height="16" />
+          <line class="road-dashes" x1="-40" y1="102" x2="360" y2="102" />
+        </svg>
+
+        <!-- KITCHEN -->
+        <svg class="scene-svg scene-kitchen" viewBox="0 0 320 110" preserveAspectRatio="xMidYMid slice">
+          <rect class="sky" x="0" y="0" width="320" height="110" />
+          <g class="steam">
+            <path class="wisp wisp-a" d="M148 42 c -7 -10 7 -16 0 -26" />
+            <path class="wisp wisp-b" d="M160 44 c 7 -11 -7 -18 0 -28" />
+            <path class="wisp wisp-c" d="M172 42 c -6 -10 6 -15 0 -24" />
+          </g>
+          <rect class="hob" x="104" y="102" width="112" height="5" rx="2.5" />
+          <g class="flames">
+            <path class="flame flame-a" d="M136 102 c -4 -5 2 -6 0 -10 c 5 4 6 6 0 10 z" />
+            <path class="flame flame-b" d="M160 102 c -4 -5 2 -7 0 -11 c 6 4 6 7 0 11 z" />
+            <path class="flame flame-c" d="M184 102 c -4 -5 2 -6 0 -10 c 5 4 6 6 0 10 z" />
+          </g>
+          <clipPath id="potClip"><path d="M124 50 h72 l-7 33 a6 6 0 0 1 -6 5 h-46 a6 6 0 0 1 -6 -5 z" /></clipPath>
+          <g clip-path="url(#potClip)">
+            <rect class="stew" id="stew-level" x="124" y="56" width="72" height="32" />
+            <circle class="bubble bubble-a" cx="142" r="3" cy="84" />
+            <circle class="bubble bubble-b" cx="160" r="4" cy="84" />
+            <circle class="bubble bubble-c" cx="178" r="2.5" cy="84" />
+          </g>
+          <path class="pot" d="M124 50 h72 l-7 33 a6 6 0 0 1 -6 5 h-46 a6 6 0 0 1 -6 -5 z" />
+          <rect class="pot-rim" x="120" y="46" width="80" height="6" rx="3" />
+          <rect class="handle" x="104" y="48" width="18" height="5" rx="2.5" />
+          <rect class="handle" x="198" y="48" width="18" height="5" rx="2.5" />
+        </svg>
+      </div>
+
+      <div class="focus-controls">
+        <button id="focus-stop" class="btn btn-secondary">Stop</button>
+        <button id="focus-pause" class="btn btn-primary">Pause</button>
+      </div>
+      <p class="hint" id="focus-run-hint">The clock keeps running while you study — go and work on your cards.</p>
+    </div>
+  </main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="screen-home">
+      <span class="tab-icon">📖</span><span class="tab-label">Study</span>
+    </button>
+    <button class="tab" data-tab="screen-exams">
+      <span class="tab-icon">📅<span class="tab-countdown hidden"></span></span><span class="tab-label">Exams</span>
+    </button>
+    <button class="tab" data-tab="screen-papers">
+      <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
+    </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
     </button>
@@ -534,6 +684,9 @@
     </button>
     <button class="tab" data-tab="screen-papers">
       <span class="tab-icon">📝</span><span class="tab-label">Papers</span>
+    </button>
+    <button class="tab" data-tab="screen-focus">
+      <span class="tab-icon">⏳<span class="tab-timer hidden"></span></span><span class="tab-label">Focus</span>
     </button>
     <button class="tab" data-tab="screen-room">
       <span class="tab-icon">🪟</span><span class="tab-label">Room</span>
@@ -593,15 +746,6 @@
   </header>
   <main class="home-main manage-main">
     <div class="card-panel manage-editor" id="card-editor">
-      <button type="button" id="import-open-btn" class="paste-cta">
-        <span class="paste-cta-icon">📋</span>
-        <span class="paste-cta-text">
-          <span class="paste-cta-title">Paste a list</span>
-          <span class="paste-cta-sub">Turn notes you already have into cards, all at once</span>
-        </span>
-        <span class="paste-cta-go" aria-hidden="true">→</span>
-      </button>
-
       <div class="kind-picker" role="group" aria-label="What kind of card?">
         <button type="button" class="kind-btn" data-kind="quick">
           <span class="kind-icon">⚡</span>
@@ -661,35 +805,6 @@
 </section>
 
 <!-- FLASHCARDS -->
-<!-- PASTE A LIST -->
-<section id="screen-import" class="screen">
-  <header class="topbar">
-    <button id="import-back" class="icon-btn" aria-label="Back">←</button>
-    <div class="wordmark">Paste a list</div>
-  </header>
-  <main class="home-main manage-main">
-    <div class="card-panel">
-      <p class="kind-blurb">Paste from your notes, a revision guide, a spreadsheet, anything with a term on one side and its meaning on the other. It works out how the list is laid out — check what it found before you add it.</p>
-
-      <label class="field-label" for="import-text">Your list</label>
-      <textarea id="import-text" class="textarea-small import-text" placeholder="Mitochondria — the powerhouse of the cell&#10;Ribosome — where protein is made"></textarea>
-
-      <div class="import-modes" id="import-modes" role="group" aria-label="How the list is laid out"></div>
-      <p class="import-verdict" id="import-verdict"></p>
-
-      <label class="field-label" for="import-tags">Topics for all of them <span class="optional">(optional)</span></label>
-      <input id="import-tags" type="text" placeholder="cells, genetics" maxlength="200" />
-
-      <button id="import-add-btn" class="btn btn-primary btn-full" disabled>Add cards</button>
-    </div>
-
-    <div class="manage-list-col">
-      <h2 class="section-title" id="import-count-label">Nothing yet</h2>
-      <div id="import-preview" class="import-preview"></div>
-    </div>
-  </main>
-</section>
-
 <section id="screen-flash" class="screen">
   <header class="topbar">
     <button class="icon-btn back-btn" data-target="screen-summary" aria-label="Exit">←</button>

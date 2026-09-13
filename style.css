@@ -838,106 +838,212 @@ input[type="date"] { font-family: inherit; }
 .typed-verdict-1 { color: var(--gold-dim); }
 .typed-verdict-0 { color: var(--coral); }
 
-/* Paste a list */
-.paste-cta {
+/* ---------------- Focus: the journey clock ---------------- */
+.focus-main { gap: 18px; }
+.focus-tally { margin-left: auto; font-size: 0.68rem; font-weight: 650; color: var(--taupe); }
+
+.journey-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.journey-btn {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 13px 15px;
-  margin-bottom: 16px;
+  gap: 4px;
+  padding: 14px 6px 11px;
   border-radius: 15px;
-  border: 1.5px dashed var(--hair);
-  background: none;
+  border: 1.5px solid var(--hair);
+  background: var(--panel);
   cursor: pointer;
-  text-align: left;
   color: var(--taupe);
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.14s var(--bounce);
 }
-.paste-cta:active { transform: scale(0.985); }
-.paste-cta-icon { font-size: 1.15rem; line-height: 1; }
-.paste-cta-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.paste-cta-title { font-size: 0.88rem; font-weight: 700; color: var(--ink); }
-.paste-cta-sub { font-size: 0.64rem; line-height: 1.35; }
-.paste-cta-go { flex: 0 0 auto; opacity: 0.45; }
+.journey-btn:active { transform: scale(0.96); }
+.journey-icon { font-size: 1.5rem; line-height: 1; filter: grayscale(1); opacity: 0.5; transition: filter 0.2s ease, opacity 0.2s ease; }
+.journey-name { font-size: 0.78rem; font-weight: 700; color: var(--ink); }
+.journey-sub { font-size: 0.58rem; line-height: 1.3; text-align: center; }
+.journey-btn.active { border-color: var(--violet); background: rgb(122 94 214 / 0.1); color: var(--violet); }
+.journey-btn.active .journey-icon { filter: none; opacity: 1; }
 
-.import-text { min-height: 180px; font-size: 0.85rem; line-height: 1.55; }
-.import-modes { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 8px; }
-.import-modes.hidden { display: none; }
-.import-mode {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1.5px solid var(--hair);
-  background: var(--panel);
-  cursor: pointer;
-  color: var(--taupe);
-  font-size: 0.68rem;
-  font-weight: 650;
-  transition: border-color 0.18s ease, opacity 0.18s ease;
-}
-.import-mode:disabled { opacity: 0.35; cursor: default; }
-.import-mode.active { border-color: var(--violet); color: var(--violet); }
-.import-mode-count {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.62rem;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgb(var(--shadow-rgb) / 0.1);
-}
-.import-mode.active .import-mode-count { background: rgb(122 94 214 / 0.16); }
-.import-verdict { font-size: 0.68rem; line-height: 1.45; color: var(--taupe); margin-bottom: 4px; }
-
-.import-preview { display: flex; flex-direction: column; gap: 6px; }
-.import-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+/* The half-ring. It is the road, the flight path and the recipe at once:
+   whatever you picked rides along it. */
+.gauge-wrap {
+  position: relative;
   width: 100%;
-  padding: 10px 13px;
-  border-radius: 13px;
-  border: 1px solid var(--hair);
-  background: var(--panel);
-  cursor: pointer;
-  text-align: left;
-  color: var(--taupe);
-  transition: opacity 0.16s ease, border-color 0.16s ease;
+  max-width: 380px;
+  margin: 4px auto 0;
+  aspect-ratio: 200 / 116;
 }
-.import-row.off { opacity: 0.45; }
-.import-tick {
-  flex: 0 0 auto;
-  width: 17px; height: 17px;
-  margin-top: 1px;
-  border-radius: 5px;
-  border: 1.5px solid var(--hair);
-  background: var(--violet);
-  color: #fdfcfa;
-  font-size: 0.62rem;
-  line-height: 15px;
+.gauge { width: 100%; height: 100%; overflow: visible; }
+.gauge-track, .gauge-fill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+.gauge-track { stroke: rgb(var(--shadow-rgb) / 0.12); }
+.gauge-fill {
+  stroke: var(--gold);
+  stroke-dasharray: 264;
+  stroke-dashoffset: 264;
+  filter: drop-shadow(0 0 6px rgb(var(--accent-rgb) / 0.35));
+  transition: stroke-dashoffset 0.3s linear, stroke 0.4s ease;
+}
+.focus-main.on-break .gauge-fill { stroke: var(--sage); filter: drop-shadow(0 0 6px rgb(122 150 120 / 0.3)); }
+.gauge-marker {
+  position: absolute;
+  left: 0; top: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  transition: left 0.3s linear, top 0.3s linear;
+  pointer-events: none;
+  will-change: left, top;
+}
+.gauge-marker span { display: inline-block; }
+.gauge-face {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
   text-align: center;
 }
-.import-row.off .import-tick { background: none; border-color: var(--hair); }
-.import-row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.import-row-front { font-size: 0.82rem; font-weight: 650; color: var(--ink); }
-.import-row-back { font-size: 0.7rem; line-height: 1.4; }
-.import-row-front, .import-row-back {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.gauge-time {
+  font-family: var(--serif);
+  font-size: 2.6rem;
+  font-weight: 560;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.import-more { font-size: 0.66rem; color: var(--taupe); padding: 8px 4px; }
-.import-row-tag {
-  flex: 0 0 auto;
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 3px 7px;
+.gauge-cap {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--taupe);
+  margin-top: 5px;
+}
+.focus-main.paused .gauge-time { opacity: 0.45; }
+
+.scene-line {
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.98rem;
+  color: var(--taupe);
+  min-height: 1.4em;
+  transition: opacity 0.3s ease;
+}
+.scene-line.fading { opacity: 0; }
+
+.scene {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  aspect-ratio: 320 / 110;
+}
+.scene-svg { display: none; width: 100%; height: 100%; }
+.scene.flight .scene-flight,
+.scene.road .scene-road,
+.scene.kitchen .scene-kitchen { display: block; }
+
+.scene .sky { fill: var(--wash-b); }
+.scene .sun { fill: var(--gold); opacity: 0.55; }
+
+/* Flight */
+.scene-flight .cloud { fill: var(--panel); opacity: 0.85; }
+.scene-flight .land { fill: var(--sage); opacity: 0.4; }
+.scene-flight .tower { fill: var(--taupe); opacity: 0.55; }
+.scene-flight .tower line { stroke: var(--taupe); stroke-width: 1.5; opacity: 0.55; }
+.cloud-a { animation: drift 26s linear infinite; }
+.cloud-b { animation: drift 38s linear infinite; animation-delay: -12s; }
+.cloud-c { animation: drift 19s linear infinite; animation-delay: -7s; }
+@keyframes drift {
+  from { transform: translateX(360px); }
+  to   { transform: translateX(-60px); }
+}
+
+/* Road trip */
+.scene-road .hill-far { fill: var(--sage); opacity: 0.32; }
+.scene-road .hill-near { fill: var(--sage); opacity: 0.5; }
+.scene-road .tree { fill: var(--sage); opacity: 0.75; }
+.scene-road .road { fill: rgb(var(--shadow-rgb) / 0.22); }
+.scene-road .road-dashes {
+  stroke: var(--panel);
+  stroke-width: 3;
+  stroke-dasharray: 16 18;
+  opacity: 0.8;
+  animation: road-run 0.9s linear infinite;
+}
+@keyframes road-run {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -34; }
+}
+.scene-road .trees { animation: scroll-trees 7s linear infinite; }
+@keyframes scroll-trees {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-94px); }
+}
+
+/* Kitchen */
+.scene-kitchen .pot { fill: none; stroke: var(--taupe); stroke-width: 3; opacity: 0.8; }
+.scene-kitchen .pot-rim, .scene-kitchen .handle { fill: var(--taupe); opacity: 0.8; }
+.scene-kitchen .hob { fill: rgb(var(--shadow-rgb) / 0.25); }
+.scene-kitchen .stew { fill: var(--gold); opacity: 0.75; transition: y 0.4s ease, height 0.4s ease; }
+.scene-kitchen .bubble { fill: var(--panel); opacity: 0.6; }
+.bubble-a { animation: rise 2.6s ease-in infinite; }
+.bubble-b { animation: rise 3.4s ease-in infinite; animation-delay: -1.2s; }
+.bubble-c { animation: rise 2.1s ease-in infinite; animation-delay: -0.6s; }
+@keyframes rise {
+  0%   { transform: translateY(0); opacity: 0; }
+  25%  { opacity: 0.6; }
+  100% { transform: translateY(-30px); opacity: 0; }
+}
+.scene-kitchen .wisp { fill: none; stroke: var(--panel); stroke-width: 2.5; stroke-linecap: round; opacity: 0; }
+.wisp-a { animation: waft 4s ease-out infinite; }
+.wisp-b { animation: waft 5.2s ease-out infinite; animation-delay: -1.8s; }
+.wisp-c { animation: waft 4.6s ease-out infinite; animation-delay: -3.1s; }
+@keyframes waft {
+  0%   { transform: translateY(6px) scale(0.9); opacity: 0; }
+  30%  { opacity: 0.55; }
+  100% { transform: translateY(-26px) scale(1.15); opacity: 0; }
+}
+.scene-kitchen .flame { fill: var(--coral); opacity: 0.8; transform-origin: center bottom; }
+.flame-a { animation: flicker 1.1s ease-in-out infinite; }
+.flame-b { animation: flicker 0.9s ease-in-out infinite; animation-delay: -0.4s; }
+.flame-c { animation: flicker 1.3s ease-in-out infinite; animation-delay: -0.8s; }
+@keyframes flicker {
+  0%, 100% { transform: scaleY(1) scaleX(1); opacity: 0.8; }
+  50%      { transform: scaleY(1.2) scaleX(0.9); opacity: 1; }
+}
+
+.focus-controls { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; max-width: 440px; width: 100%; margin: 0 auto; }
+
+.tab-timer {
+  position: absolute;
+  top: -4px;
+  right: -12px;
+  min-width: 17px;
+  padding: 1px 4px;
   border-radius: 999px;
-  background: rgb(var(--shadow-rgb) / 0.1);
+  background: var(--violet);
+  color: #fdfcfa;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nothing here is load-bearing, so on request it all stops. */
+@media (prefers-reduced-motion: reduce) {
+  .cloud-a, .cloud-b, .cloud-c,
+  .scene-road .road-dashes, .scene-road .trees,
+  .bubble-a, .bubble-b, .bubble-c,
+  .wisp-a, .wisp-b, .wisp-c,
+  .flame-a, .flame-b, .flame-c { animation: none; }
+  .scene-kitchen .wisp { opacity: 0.4; }
+  .gauge-marker, .gauge-fill { transition: none; }
 }
 
 /* Papers tab: the source picker and the history under it */
@@ -1773,6 +1879,12 @@ input[type="date"] { font-family: inherit; }
   white-space: nowrap;
 }
 .tab.active { background: rgb(var(--accent-rgb) / 0.12); color: var(--gold-dim); }
+/* Six tabs on the narrowest phones: the longest label needs the room. */
+@media (max-width: 340px) {
+  .tab-label { font-size: 0.52rem; letter-spacing: 0; }
+  .tab-icon { font-size: 1.05rem; }
+  .tab { padding: 6px 1px 5px; }
+}
 .tab.active .tab-icon { filter: none; opacity: 1; }
 
 /* ---------------- Reminder toggle ---------------- */
@@ -2494,6 +2606,11 @@ textarea.textarea-tall { min-height: 220px; }
   .paper-history { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
   .next-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
   .theme-grid, .scape-grid { grid-template-columns: repeat(3, 1fr); }
+  .gauge-wrap { max-width: 460px; }
+  .gauge-time { font-size: 3.1rem; }
+  .scene, .focus-controls { max-width: 560px; }
+  .scene-line { font-size: 1.08rem; }
+  .journey-grid { max-width: 620px; }
   .theme-auto { grid-column: 1 / -1; }
 
   /* Writing cards: the editor stays put beside the cards it is making. */
@@ -2548,6 +2665,4 @@ textarea.textarea-tall { min-height: 220px; }
 @media (min-width: 1180px) {
   .home-dash { grid-template-columns: minmax(0, 1fr) 340px; }
   #manage-card-list { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
-  #import-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 8px; align-items: start; }
-  .import-text { min-height: 260px; }
 }

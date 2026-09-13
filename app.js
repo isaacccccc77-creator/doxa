@@ -19,6 +19,7 @@
     { id: "writing", label: "The Writing Desk", note: "Answers in your own words" },
     { id: "curios", label: "Curiosities", note: "Odd hours and happy returns" },
     { id: "sittings", label: "The Reading Room", note: "Time spent properly sat down" },
+    { id: "focus", label: "The Long Way Round", note: "Journeys taken at your desk" },
   ];
 
   // Every badge is the same shape: a number you're working towards and a
@@ -109,6 +110,16 @@
       desc: "Finish a sitting in each of the four soundscapes.",
       value: (c) => SOUNDSCAPES.filter((sc) => sc.id !== "silence" &&
         (c.stats.scapeCounts || {})[sc.id] > 0).length },
+
+    // The Long Way Round
+    { id: "focus_1", ladder: "focus", icon: "🧭", label: "First Departure", group: "focus", target: 1,
+      desc: "See a focus block all the way through.", value: (c) => c.stats.focusBlocks || 0 },
+    { id: "focus_20", ladder: "focus", icon: "🗺", label: "Frequent Flyer", group: "focus", target: 20,
+      desc: "Finish twenty focus blocks.", value: (c) => c.stats.focusBlocks || 0 },
+    { id: "focus_hours", icon: "⏳", label: "Ten Hours Deep", group: "focus", target: 600,
+      desc: "Spend 600 minutes inside finished focus blocks.", value: (c) => c.stats.focusMinutes || 0 },
+    { id: "focus_long", icon: "🛫", label: "Long Haul Flight", group: "focus", target: 50,
+      desc: "Finish a single block of 50 minutes.", value: (c) => c.stats.longestFocus || 0 },
   ];
 
   const AVATAR_OPTIONS = [
@@ -189,7 +200,7 @@
     }
   }
   // Screens that carry a tab bar; the dock has to sit above it.
-  const TABBED = ["screen-home", "screen-exams", "screen-papers", "screen-room", "screen-cupboard"];
+  const TABBED = ["screen-home", "screen-exams", "screen-papers", "screen-focus", "screen-room", "screen-cupboard"];
 
   function updateSoundDock() {
     const dock = $("#sound-dock");
@@ -257,6 +268,9 @@
     st.longestSitting = st.longestSitting || 0;
     st.scapeCounts = st.scapeCounts || {};
     st.papers = st.papers || 0;
+    st.focusBlocks = st.focusBlocks || 0;
+    st.focusMinutes = st.focusMinutes || 0;
+    st.longestFocus = st.longestFocus || 0;
     st.bestPaper = st.bestPaper || 0;
     // Badges you've earned but not yet seen in the Cupboard. They get the
     // reveal, and put a pip on the tab until you go and look.
@@ -1860,115 +1874,7 @@
     return { quality, tokenScore, charScore, exact: false };
   }
 
-  // ---- Reading a pasted list ----------------------------------------
-  const IMPORT_MODES = [
-    { id: "qa", label: "Q: / A:" },
-    { id: "tab", label: "Tab" },
-    { id: "pipe", label: "Bar |" },
-    { id: "dash", label: "Dash –" },
-    { id: "colon", label: "Colon :" },
-    { id: "pairs", label: "Two lines" },
-  ];
-
-  // Each needs whitespace or an unambiguous character so it can't fire on
-  // a hyphenated word or a clock time.
-  const IMPORT_SEP = {
-    tab: /\t+/,
-    pipe: /\s*\|\s*/,
-    dash: /\s+[-\u2010-\u2015]\s+/,
-    colon: /\s*:\s+/,
-  };
-
-  const IMPORT_MAX_CARDS = 500;
-  const IMPORT_PREVIEW_ROWS = 150;
-  const IMPORT_MAX_FRONT = 500;
-  const IMPORT_MAX_BACK = 2000;
-
-  function importLines(text) {
-    return String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
-  }
-
-  // Notes come out of a document with bullets and numbering attached.
-  function cleanImportLine(line) {
-    return String(line).replace(/^\s*(?:\d+[.)]|[-\u2010-\u2015\u2022*\u00b7])\s+/, "").trim();
-  }
-
-  function splitOnce(line, re) {
-    const m = line.match(re);
-    if (!m || m.index === undefined) return null;
-    return [line.slice(0, m.index), line.slice(m.index + m[0].length)];
-  }
-
-  function parseImport(text, mode) {
-    const raw = importLines(text);
-    const cards = [];
-    let skipped = 0;
-
-    const add = (front, back) => {
-      const f = front.trim().slice(0, IMPORT_MAX_FRONT);
-      const b = back.trim().slice(0, IMPORT_MAX_BACK);
-      if (!f || !b) { skipped++; return; }
-      if (cards.length < IMPORT_MAX_CARDS) cards.push({ front: f, back: b });
-    };
-
-    if (mode === "qa") {
-      let front = null;
-      raw.forEach((r) => {
-        const line = cleanImportLine(r);
-        if (!line) return;
-        const q = line.match(/^q\s*[:.)]\s*(.*)$/i);
-        if (q) {
-          if (front !== null) skipped++;
-          front = q[1].trim();
-          return;
-        }
-        const a = line.match(/^a\s*[:.)]\s*(.*)$/i);
-        if (a && front !== null) { add(front, a[1]); front = null; return; }
-        skipped++;
-      });
-      if (front !== null) skipped++;
-      return { cards, skipped };
-    }
-
-    if (mode === "pairs") {
-      const lines = raw.map(cleanImportLine).filter(Boolean);
-      for (let i = 0; i + 1 < lines.length; i += 2) add(lines[i], lines[i + 1]);
-      if (lines.length % 2) skipped++;
-      return { cards, skipped };
-    }
-
-    const re = IMPORT_SEP[mode];
-    if (!re) return { cards, skipped: 0 };
-    raw.forEach((r) => {
-      const line = cleanImportLine(r);
-      if (!line) return;
-      const parts = splitOnce(line, re);
-      if (!parts) { skipped++; return; }
-      add(parts[0], parts[1]);
-    });
-    return { cards, skipped };
-  }
-
-  // Whichever reading accounts for the most of what was pasted. Two lines
-  // is weighted down because it always parses something, so it should only
-  // win when no real separator was found.
-  function detectImportMode(text) {
-    let bestId = "pairs";
-    let bestValue = -1;
-    IMPORT_MODES.forEach((m) => {
-      const r = parseImport(text, m.id);
-      if (!r.cards.length) return;
-      const total = r.cards.length + r.skipped;
-      const share = total ? r.cards.length / total : 0;
-      const value = share * (m.id === "pairs" ? 0.4 : 1);
-      if (value > bestValue) { bestValue = value; bestId = m.id; }
-    });
-    return bestId;
-  }
-
-  window.__doxaText = {
-    normaliseAnswer, gradeTypedAnswer, parseImport, detectImportMode,
-  };
+  window.__doxaText = { normaliseAnswer, gradeTypedAnswer };
   Ambience.setSfx(profile.sfx);
 
   // ---------------------------------------------------------------
@@ -3742,184 +3648,6 @@
   let cardKind = "quick";
 
   // Cards written before kinds existed still belong to one.
-  // ---------------------------------------------------------------
-  // PASTE A LIST: the slowest part of any card app is getting the material
-  // in. A student with a page of notes had to retype it one card at a time.
-  // ---------------------------------------------------------------
-  const importState = {
-    mode: null, auto: null, cards: [], skipped: 0, off: new Set(), touched: false,
-  };
-
-  function importFrontKey(text) {
-    return normaliseAnswer(text);
-  }
-
-  function existingFronts() {
-    const set = new Set();
-    if (currentDeck) currentDeck.questions.forEach((q) => set.add(importFrontKey(q.prompt)));
-    return set;
-  }
-
-  function renderImport() {
-    const text = $("#import-text").value;
-    const auto = detectImportMode(text);
-    importState.auto = auto;
-    const mode = importState.mode || auto;
-    const parsed = parseImport(text, mode);
-    importState.cards = parsed.cards;
-    importState.skipped = parsed.skipped;
-
-    // Which layouts would find anything at all, so the chips aren't a wall
-    // of options that all do nothing.
-    const counts = {};
-    IMPORT_MODES.forEach((m) => { counts[m.id] = parseImport(text, m.id).cards.length; });
-
-    const modeWrap = $("#import-modes");
-    modeWrap.innerHTML = "";
-    const hasText = text.trim().length > 0;
-    modeWrap.classList.toggle("hidden", !hasText);
-    if (hasText) {
-      IMPORT_MODES.forEach((m) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "import-mode" + (m.id === mode ? " active" : "");
-        btn.dataset.mode = m.id;
-        btn.disabled = counts[m.id] === 0;
-        btn.innerHTML = `<span class="import-mode-label">${escapeHtml(m.label)}</span>` +
-          `<span class="import-mode-count">${counts[m.id]}</span>`;
-        btn.addEventListener("click", () => {
-          importState.mode = m.id;
-          importState.off.clear();
-          renderImport();
-          vibrate(8);
-        });
-        modeWrap.appendChild(btn);
-      });
-    }
-
-    const known = existingFronts();
-    const dupes = [];
-    importState.cards.forEach((c, i) => {
-      if (known.has(importFrontKey(c.front))) dupes.push(i);
-    });
-    // A card you already have is off by default, but you can put it back.
-    if (!importState.touched) dupes.forEach((i) => importState.off.add(i));
-
-    const chosen = importState.cards.filter((c, i) => !importState.off.has(i));
-    $("#import-count-label").textContent = !hasText
-      ? "Nothing yet"
-      : `${chosen.length} of ${importState.cards.length} card${importState.cards.length === 1 ? "" : "s"}`;
-
-    const verdict = $("#import-verdict");
-    if (!hasText) {
-      verdict.textContent = "";
-    } else if (!importState.cards.length) {
-      verdict.textContent = "Can't see a pattern in that. Each card needs a front and a back — try separating them with a dash, a bar, or a tab.";
-    } else {
-      const bits = [`Read as ${IMPORT_MODES.find((m) => m.id === mode).label.toLowerCase()}`];
-      if (importState.skipped) bits.push(`${importState.skipped} line${importState.skipped === 1 ? "" : "s"} didn't fit`);
-      if (dupes.length) bits.push(`${dupes.length} already in this deck`);
-      if (importState.cards.length >= IMPORT_MAX_CARDS) bits.push(`capped at ${IMPORT_MAX_CARDS}`);
-      verdict.textContent = bits.join(" · ") + ".";
-    }
-
-    const list = $("#import-preview");
-    list.innerHTML = "";
-    const frag = document.createDocumentFragment();
-    const shown = Math.min(importState.cards.length, IMPORT_PREVIEW_ROWS);
-    importState.cards.slice(0, shown).forEach((c, i) => {
-      const dupe = known.has(importFrontKey(c.front));
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "import-row" + (importState.off.has(i) ? " off" : "");
-      row.setAttribute("aria-pressed", importState.off.has(i) ? "false" : "true");
-      row.innerHTML = `
-        <span class="import-tick" aria-hidden="true">${importState.off.has(i) ? "" : "✓"}</span>
-        <span class="import-row-main">
-          <span class="import-row-front">${escapeHtml(c.front)}</span>
-          <span class="import-row-back">${escapeHtml(c.back)}</span>
-        </span>
-        ${dupe ? '<span class="import-row-tag">already here</span>' : ""}
-      `;
-      row.addEventListener("click", () => {
-        importState.touched = true;
-        if (importState.off.has(i)) importState.off.delete(i); else importState.off.add(i);
-        renderImport();
-        vibrate(6);
-      });
-      frag.appendChild(row);
-    });
-    if (importState.cards.length > shown) {
-      const more = document.createElement("p");
-      more.className = "import-more";
-      more.textContent =
-        `Showing the first ${shown}. All ${importState.cards.length} will be added.`;
-      frag.appendChild(more);
-    }
-    list.appendChild(frag);
-
-    $("#import-add-btn").disabled = chosen.length === 0;
-    $("#import-add-btn").textContent = chosen.length
-      ? `Add ${chosen.length} card${chosen.length === 1 ? "" : "s"}`
-      : "Add cards";
-  }
-
-  function openImport() {
-    if (!currentDeck) return;
-    importState.mode = null;
-    importState.off.clear();
-    importState.touched = false;
-    $("#import-text").value = "";
-    $("#import-tags").value = "";
-    renderImport();
-    showScreen("screen-import");
-    $("#import-text").focus();
-  }
-
-  $("#import-open-btn").addEventListener("click", openImport);
-  $("#import-back").addEventListener("click", () => {
-    renderManageList();
-    showScreen("screen-manage");
-  });
-  let importTimer = null;
-  $("#import-text").addEventListener("input", () => {
-    // A fresh paste is a fresh reading; don't keep an old override.
-    importState.mode = null;
-    importState.off.clear();
-    importState.touched = false;
-    clearTimeout(importTimer);
-    importTimer = setTimeout(renderImport, 120);
-  });
-
-  $("#import-add-btn").addEventListener("click", () => {
-    if (!currentDeck) return;
-    const chosen = importState.cards.filter((c, i) => !importState.off.has(i));
-    if (!chosen.length) return;
-    const tags = parseTags($("#import-tags").value);
-    const stamp = Date.now();
-    chosen.forEach((c, i) => {
-      currentDeck.questions.push({
-        // Five hundred cards land in the same millisecond, so the index is
-        // what actually keeps the ids apart.
-        id: "m" + stamp + i.toString(36) + Math.random().toString(36).slice(2, 7),
-        type: "manual",
-        kind: c.back.length > 220 ? "essay" : "quick",
-        prompt: c.front,
-        answer: c.back,
-        answerShort: c.back,
-        sourceSentence: "",
-        tags: tags,
-        imgFront: "",
-        imgBack: "",
-      });
-    });
-    upsertDeck(currentDeck);
-    celebrateBadges(checkBadges());
-    toast(`${chosen.length} card${chosen.length === 1 ? "" : "s"} added.`);
-    renderManageList();
-    showScreen("screen-manage");
-  });
-
   function inferKind(q) {
     if (q.kind && CARD_KINDS[q.kind]) return q.kind;
     if (q.imgFront) return "picture";
@@ -4703,12 +4431,374 @@
   }
 
   // ---------------------------------------------------------------
+  // FOCUS: a pomodoro that doesn't look like one. A number counting down
+  // invites you to watch it; a journey you are part of the way through
+  // invites you to look away. Same clock, opposite effect.
+  // ---------------------------------------------------------------
+  const FOCUS_KEY = "doxa.focus.v1";
+  const FOCUS_MINUTES = [15, 25, 40, 50];
+  const BREAK_SHORT = 5;
+  const BREAK_LONG = 15;
+  const BLOCKS_PER_LONG_BREAK = 4;
+
+  const JOURNEYS = [
+    {
+      id: "flight", icon: "✈️", marker: "✈️", rotates: true,
+      name: "Flight", sub: "Wheels up, wheels down",
+      begin: "Take off",
+      stages: [
+        [0.00, "At the gate, doors closing."],
+        [0.06, "Rolling out to the runway."],
+        [0.14, "Wheels up — climbing out."],
+        [0.30, "Levelled off. Nothing to do but the work."],
+        [0.52, "Halfway. The long quiet stretch."],
+        [0.74, "Starting the descent."],
+        [0.90, "Final approach, flaps down."],
+        [1.00, "Landed. Well flown."],
+      ],
+    },
+    {
+      id: "road", icon: "🚗", marker: "🚗", rotates: false,
+      name: "Road trip", sub: "Out past the ring road",
+      begin: "Set off",
+      stages: [
+        [0.00, "Bags in the boot, engine on."],
+        [0.07, "Out of town, picking up speed."],
+        [0.18, "Open road. Windows down."],
+        [0.34, "Hills either side, nobody ahead."],
+        [0.52, "Halfway. Somewhere past the middle of nowhere."],
+        [0.74, "Signs for your turning start showing up."],
+        [0.91, "Last few miles."],
+        [1.00, "Pulled in. Handbrake on."],
+      ],
+    },
+    {
+      id: "kitchen", icon: "🍲", marker: "🥄", rotates: false,
+      name: "Slow cook", sub: "Low heat, long simmer",
+      begin: "Start cooking",
+      stages: [
+        [0.00, "Everything chopped and waiting."],
+        [0.08, "Onions in. That smell."],
+        [0.20, "Stock in, heat down low."],
+        [0.36, "Simmering. Leave it alone."],
+        [0.54, "Halfway. It's starting to smell like dinner."],
+        [0.74, "Reducing down, thickening."],
+        [0.90, "Season, taste, season again."],
+        [1.00, "Served. You earned it."],
+      ],
+    },
+  ];
+
+  const BREAK_STAGES = [
+    [0.00, "Stop. Stand up. Look at something far away."],
+    [0.35, "Water. Actual water."],
+    [0.70, "Nearly time. Don't start anything new."],
+    [1.00, "Break's over."],
+  ];
+
+  const focus = {
+    phase: "idle", journey: "flight", minutes: 25,
+    endsAt: 0, paused: false, pausedLeft: 0, blocks: 0, tick: null, lastLine: "",
+  };
+
+  function journeyById(id) {
+    return JOURNEYS.find((j) => j.id === id) || JOURNEYS[0];
+  }
+
+  function saveFocus() {
+    try {
+      localStorage.setItem(FOCUS_KEY, JSON.stringify({
+        phase: focus.phase, journey: focus.journey, minutes: focus.minutes,
+        endsAt: focus.endsAt, paused: focus.paused, pausedLeft: focus.pausedLeft,
+        blocks: focus.blocks,
+      }));
+    } catch (e) { /* a timer is not worth a warning about storage */ }
+  }
+
+  function loadFocus() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(FOCUS_KEY)); } catch (e) { saved = null; }
+    if (!saved) return;
+    focus.journey = journeyById(saved.journey).id;
+    focus.minutes = FOCUS_MINUTES.indexOf(saved.minutes) === -1 ? 25 : saved.minutes;
+    focus.blocks = saved.blocks || 0;
+    if (saved.phase !== "focus" && saved.phase !== "break") return;
+    focus.phase = saved.phase;
+    focus.paused = !!saved.paused;
+    focus.pausedLeft = saved.pausedLeft || 0;
+    focus.endsAt = saved.endsAt || 0;
+    // Closing the tab doesn't stop the clock. If it ran out while you were
+    // away, the block is finished, not abandoned.
+    if (!focus.paused && focus.endsAt <= Date.now()) { completePhase(true); return; }
+    startTicking();
+  }
+
+  function phaseTotalMs() {
+    if (focus.phase === "break") {
+      const long = focus.blocks > 0 && focus.blocks % BLOCKS_PER_LONG_BREAK === 0;
+      return (long ? BREAK_LONG : BREAK_SHORT) * 60000;
+    }
+    return focus.minutes * 60000;
+  }
+
+  function msLeft() {
+    if (focus.paused) return focus.pausedLeft;
+    return Math.max(0, focus.endsAt - Date.now());
+  }
+
+  function stageLine(p) {
+    const stages = focus.phase === "break" ? BREAK_STAGES : journeyById(focus.journey).stages;
+    let line = stages[0][1];
+    for (const [at, text] of stages) if (p >= at) line = text;
+    return line;
+  }
+
+  function renderFocusRun() {
+    const total = phaseTotalMs();
+    const left = msLeft();
+    const p = total ? Math.min(1, Math.max(0, 1 - left / total)) : 0;
+    const j = journeyById(focus.journey);
+    const main = $("#screen-focus .focus-main");
+
+    main.classList.toggle("on-break", focus.phase === "break");
+    main.classList.toggle("paused", focus.paused);
+
+    $("#focus-clock").textContent = formatClock(Math.ceil(left / 1000));
+    $("#focus-phase").textContent = focus.phase === "break"
+      ? (phaseTotalMs() > BREAK_SHORT * 60000 ? "Long break" : "Break")
+      : j.name;
+
+    // The arc is 264 units long; the fill grows as the time goes.
+    $("#gauge-fill").style.strokeDashoffset = String(264 * (1 - p));
+
+    // The traveller rides the arc: centre (100,100), radius 84, left to right.
+    const theta = Math.PI * (1 - p);
+    const x = 100 + 84 * Math.cos(theta);
+    const y = 100 - 84 * Math.sin(theta);
+    const marker = $("#gauge-marker");
+    marker.style.left = (x / 200) * 100 + "%";
+    marker.style.top = (y / 116) * 100 + "%";
+    const icon = $("#gauge-marker-icon");
+    icon.textContent = focus.phase === "break" ? "☕" : j.marker;
+    icon.style.transform = (j.rotates && focus.phase !== "break")
+      ? `rotate(${Math.round(-45 + 180 * p)}deg)` : "none";
+
+    const scene = $("#focus-scene");
+    scene.className = "scene " + (focus.phase === "break" ? "" : j.id);
+    scene.classList.toggle("hidden", focus.phase === "break");
+
+    // The pot fills as the dish comes together.
+    const stew = $("#stew-level");
+    if (stew) {
+      // The pot's inside runs from y=52 to y=88; it fills as the dish does.
+      const h = 7 + 29 * p;
+      stew.setAttribute("y", String(88 - h));
+      stew.setAttribute("height", String(h));
+    }
+
+    const line = stageLine(p);
+    if (line !== focus.lastLine) {
+      focus.lastLine = line;
+      const el = $("#focus-line");
+      el.classList.add("fading");
+      setTimeout(() => { el.textContent = line; el.classList.remove("fading"); }, 220);
+    }
+
+    $("#focus-pause").textContent = focus.paused ? "Resume" : "Pause";
+    updateFocusTab();
+  }
+
+  function updateFocusTab() {
+    const running = focus.phase !== "idle";
+    const mins = running ? Math.max(1, Math.ceil(msLeft() / 60000)) : 0;
+    $all(".tab-timer").forEach((el) => {
+      if (!running) { el.classList.add("hidden"); return; }
+      el.textContent = mins;
+      el.classList.remove("hidden");
+    });
+  }
+
+  function startTicking() {
+    stopTicking();
+    renderFocus();
+    focus.tick = setInterval(() => {
+      if (focus.paused) return;
+      if (msLeft() <= 0) { completePhase(false); return; }
+      // While you are off studying there is nothing to draw but the badge
+      // on the tab, so don't redraw a screen nobody is looking at.
+      const el = $("#screen-focus");
+      if (el && el.classList.contains("active")) renderFocusRun();
+      else updateFocusTab();
+    }, 250);
+  }
+
+  function stopTicking() {
+    if (focus.tick) { clearInterval(focus.tick); focus.tick = null; }
+  }
+
+  // `quiet` is for a block that finished while the tab was closed: it still
+  // counts, but nobody wants confetti for something they didn't watch.
+  function completePhase(quiet) {
+    const was = focus.phase;
+    stopTicking();
+    if (was === "focus") {
+      focus.blocks++;
+      const st = profile.stats;
+      st.focusBlocks = (st.focusBlocks || 0) + 1;
+      st.focusMinutes = (st.focusMinutes || 0) + focus.minutes;
+      st.longestFocus = Math.max(st.longestFocus || 0, focus.minutes);
+      saveProfile(profile);
+      touchStreak();
+      if (!quiet) {
+        burstConfetti(48);
+        vibrate([15, 40, 15]);
+        toast(journeyById(focus.journey).stages[journeyById(focus.journey).stages.length - 1][1]);
+      }
+      // Straight into the break — it's the half people skip.
+      focus.phase = "break";
+      focus.paused = false;
+      focus.endsAt = Date.now() + phaseTotalMs();
+      focus.lastLine = "";
+      celebrateBadges(checkBadges(), true);
+      saveFocus();
+      startTicking();
+      return;
+    }
+    // A break ending drops you back to the start, ready to go again.
+    focus.phase = "idle";
+    focus.paused = false;
+    focus.endsAt = 0;
+    focus.lastLine = "";
+    saveFocus();
+    if (!quiet) { Ambience.chime(); vibrate([10]); toast("Break's over. Ready when you are."); }
+    renderFocus();
+  }
+
+  function renderFocus() {
+    const idle = focus.phase === "idle";
+    $("#focus-setup").classList.toggle("hidden", !idle);
+    $("#focus-run").classList.toggle("hidden", idle);
+    $("#focus-tally").textContent = focus.blocks
+      ? `${focus.blocks} block${focus.blocks === 1 ? "" : "s"} today`
+      : "";
+
+    if (idle) {
+      const grid = $("#journey-grid");
+      grid.innerHTML = "";
+      JOURNEYS.forEach((j) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "journey-btn" + (j.id === focus.journey ? " active" : "");
+        btn.dataset.journey = j.id;
+        btn.innerHTML = `
+          <span class="journey-icon">${j.icon}</span>
+          <span class="journey-name">${escapeHtml(j.name)}</span>
+          <span class="journey-sub">${escapeHtml(j.sub)}</span>
+        `;
+        btn.addEventListener("click", () => {
+          focus.journey = j.id;
+          saveFocus();
+          renderFocus();
+          vibrate(8);
+        });
+        grid.appendChild(btn);
+      });
+
+      const row = $("#focus-time-row");
+      row.innerHTML = "";
+      FOCUS_MINUTES.forEach((n) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "target-btn" + (n === focus.minutes ? " active" : "");
+        btn.dataset.minutes = n;
+        btn.innerHTML = `<span class="target-num">${n}</span><span class="target-cap">min</span>`;
+        btn.addEventListener("click", () => {
+          focus.minutes = n;
+          saveFocus();
+          renderFocus();
+          vibrate(8);
+        });
+        row.appendChild(btn);
+      });
+
+      $("#focus-begin-label").textContent = `${journeyById(focus.journey).begin} — ${focus.minutes} minutes`;
+      const nextLong = BLOCKS_PER_LONG_BREAK - (focus.blocks % BLOCKS_PER_LONG_BREAK);
+      $("#focus-hint").textContent = focus.blocks
+        ? `A ${BREAK_SHORT}-minute break after this one. ${nextLong === BLOCKS_PER_LONG_BREAK ? BLOCKS_PER_LONG_BREAK : nextLong} more and it's a long one.`
+        : `A ${BREAK_SHORT}-minute break at the end, then go again.`;
+      updateFocusTab();
+      return;
+    }
+    renderFocusRun();
+  }
+
+  $("#focus-begin").addEventListener("click", () => {
+    focus.phase = "focus";
+    focus.paused = false;
+    focus.pausedLeft = 0;
+    focus.lastLine = "";
+    focus.endsAt = Date.now() + phaseTotalMs();
+    saveFocus();
+    startTicking();
+    vibrate(10);
+  });
+
+  $("#focus-pause").addEventListener("click", () => {
+    if (focus.phase === "idle") return;
+    if (focus.paused) {
+      focus.paused = false;
+      focus.endsAt = Date.now() + focus.pausedLeft;
+    } else {
+      focus.paused = true;
+      focus.pausedLeft = Math.max(0, focus.endsAt - Date.now());
+    }
+    saveFocus();
+    renderFocusRun();
+    vibrate(8);
+  });
+
+  // The clock is the one thing in here that takes twenty-five minutes to
+  // observe. Nothing on this page is worth cheating — it is all local and
+  // the numbers are your own — so the timer is reachable, the same way the
+  // soundscapes are, and a test can move it without waiting.
+  window.__doxaFocus = {
+    state() {
+      return {
+        phase: focus.phase, journey: focus.journey, minutes: focus.minutes,
+        blocks: focus.blocks, paused: focus.paused, leftMs: focus.phase === "idle" ? 0 : msLeft(),
+        totalMs: focus.phase === "idle" ? 0 : phaseTotalMs(),
+      };
+    },
+    nudge(ms) {
+      if (focus.phase === "idle") return;
+      if (focus.paused) focus.pausedLeft = Math.max(0, focus.pausedLeft - ms);
+      else focus.endsAt -= ms;
+      renderFocusRun();
+    },
+  };
+
+  $("#focus-stop").addEventListener("click", () => {
+    if (focus.phase === "idle") return;
+    const wasFocus = focus.phase === "focus";
+    if (wasFocus && msLeft() > 30000 && !confirm("Stop here? This block won't count.")) return;
+    stopTicking();
+    focus.phase = "idle";
+    focus.paused = false;
+    focus.endsAt = 0;
+    focus.lastLine = "";
+    saveFocus();
+    renderFocus();
+    if (wasFocus) toast("Stopped. No harm done.");
+  });
+
+  // ---------------------------------------------------------------
   // Tab bar + badge sheet wiring
   // ---------------------------------------------------------------
   function openTab(id) {
     if (id === "screen-cupboard") renderCupboard();
     else if (id === "screen-exams") renderExams();
     else if (id === "screen-papers") renderPapers();
+    else if (id === "screen-focus") renderFocus();
     else if (id === "screen-room") renderRoom();
     else renderHome();
     showScreen(id);
@@ -4927,6 +5017,8 @@
   applyTheme();
   watchAutoTheme();
   resizeConfettiCanvas();
+  // A block that was running when you closed the tab is still running.
+  loadFocus();
 
   // Some browsers refuse IndexedDB outright (Firefox on a file:// page,
   // strict private modes). Rather than offer a button that quietly does
